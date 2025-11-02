@@ -15,6 +15,7 @@
     "jsr:@std/yaml@*": "1.0.9",
     "npm:@google/genai@*": "1.21.0",
     "npm:@google/generative-ai@*": "0.24.1",
+    "npm:@google/generative-ai@~0.24.1": "0.24.1",
     "npm:@ngneat/elf@^2.5.1": "2.5.1_rxjs@7.8.2",
     "npm:@types/jest@30": "30.0.0",
     "npm:@types/mdast@4": "4.0.4",
@@ -997,6 +998,7 @@
     ],
     "packageJson": {
       "dependencies": [
+        "npm:@google/generative-ai@~0.24.1",
         "npm:@ngneat/elf@^2.5.1",
         "npm:@types/jest@30",
         "npm:@types/node@^24.8.1",
