@@ -84,11 +84,12 @@ export const exclusions: Array<string> = [
   "/api/CourseFiltering/autoTagCourses",
   "/api/CourseFiltering/generateSuggestions",
   "/api/CourseFiltering/suggestAlternatives",
-  // CourseScheduling
+  // CourseScheduling - admin/system actions
   "/api/CourseScheduling/createCourse",
   "/api/CourseScheduling/createSection",
   "/api/CourseScheduling/editSection",
-  "/api/CourseScheduling/getAllSchedules",
+  // CourseScheduling - requires authentication
+  "/api/CourseScheduling/getAllSchedules", // Handled by GetAllSchedulesRequest/Response syncs (filtered to user's schedules)
   "/api/CourseScheduling/createSchedule",
   "/api/CourseScheduling/deleteSchedule",
   "/api/CourseScheduling/addSection",
@@ -119,7 +120,7 @@ export const exclusions: Array<string> = [
   "/api/ProfessorRatings/updateCache",
   // Session - internal only actions
   "/api/Session/startSession",
-  "/api/Session/endSession",
+  "/api/Session/endSession", // Handled by EndSessionRequest/EndSessionResponse syncs
   "/api/Session/useSession",
   "/api/Session/extendSession",
   "/api/Session/_expireSessions",

@@ -25,6 +25,7 @@ const {
   updates,
   course,
   section,
+  schedules,
 } = $vars;
 
 /**
@@ -349,6 +350,62 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
 });
 
 /**
+ * GetAllSchedulesRequest: Handles getting all schedules for the authenticated user
+ * Requires authentication and filters to only return the user's own schedules
+ */
+export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/getAllSchedules",
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    return await validateSession(frames, request, session, userId);
+  },
+  then: actions(
+    [CourseScheduling.getAllSchedules, {}],
+  ),
+});
+
+/**
+ * GetAllSchedulesResponse: Filters schedules to only return the user's schedules
+ * Since getAllSchedules returns an array directly, we need to handle it specially.
+ * We'll match on the request and the action completion, then filter and respond.
+ */
+export const GetAllSchedulesResponse: Sync = ({
+  request,
+  userId,
+}) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseScheduling/getAllSchedules" }, {
+      request,
+    }],
+    [CourseScheduling.getAllSchedules, {}, {}],
+  ),
+  then: async (frames: Frames) => {
+    const result = new Frames();
+    for (const frame of frames) {
+      const reqId = (frame as Record<symbol, unknown>)[request] as ID;
+      const uid = (frame as Record<symbol, unknown>)[userId] as ID;
+
+      // Get all schedules and filter to only the user's schedules
+      const allSchedules = await CourseScheduling.getAllSchedules({});
+      const userSchedules = allSchedules.filter(
+        (s: { owner: string }) => s.owner === uid,
+      );
+
+      // Return only the user's schedules
+      await Requesting.respond({
+        request: reqId,
+        schedules: userSchedules,
+      });
+    }
+    return result;
+  },
+});
+
+/**
  * Synchronization to block admin/system-only CourseScheduling routes.
  * These routes should never be triggered by clients/public requests.
  */
@@ -361,9 +418,6 @@ export const CourseScheduling_AdminRoutes: Sync = ({ request }) => ({
       request,
     }],
     [Requesting.request, { path: "/CourseScheduling/editSection" }, {
-      request,
-    }],
-    [Requesting.request, { path: "/CourseScheduling/getAllSchedules" }, {
       request,
     }],
   ),
