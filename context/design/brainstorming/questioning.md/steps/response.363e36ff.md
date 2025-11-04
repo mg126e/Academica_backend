@@ -1,13 +1,8 @@
-# prompt Create syncs for /api/CourseScheduling/deleteSchedule, /api/CourseScheduling/addSection, /api/CourseScheduling/removeSection, and /api/CourseScheduling/duplicateSchedule, refer to Example as an example of a sync
-
-[@implementing-synchronizations](../background/implementing-synchronizations.md)
-
-[@INSTRUCTIONS](../background/Instructions.md)
-
-[@Example]((../../src/syncs/sample.sync.ts)
-
-[@CourseSchedulingConcept](../../src/concepts/CourseScheduling/courseSchedulingConcept.ts)
-
+---
+timestamp: 'Mon Nov 03 2025 20:52:38 GMT-0500 (Eastern Standard Time)'
+parent: '[[..\20251103_205238.bf582781.md]]'
+content_id: 363e36ffe731d706eb77e54b28cb95578620f7b572338a531293ab386c54b9b5
+---
 
 # response:
 

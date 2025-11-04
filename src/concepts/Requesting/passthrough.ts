@@ -45,6 +45,17 @@ export const inclusions: Record<string, string> = {
 
 export const exclusions: Array<string> = [
   // Feel free to delete these example exclusions
-  "/api/LikertSurvey/createSurvey",
-  "/api/LikertSurvey/addQuestion",
+  "/api/CSVImport/parseCSVFile",
+  "/api/CSVImport/parseCSVLine",
+  "/api/CSVImport/parseMeetingTime",
+  "/api/CSVImport/parseDays",
+  "/api/CSVImport/convertTo24Hour",
+  "/api/CSVImport/importSectionsFromCSV",
+  "/api/CSVImport/getAllSections",
+  "/api/CSVImport/getSectionsByCourse",
+  "/api/CSVImport/searchSections",
+  "/api/CSVImport/getSectionsBySemester",
+  "/api/CSVImport/clearAllSections",
+  "/api/CSVImport/clearSectionsBySemester",
+  "/api/CSVImport/updateSectionsWithSemester",
 ];
