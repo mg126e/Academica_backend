@@ -272,7 +272,8 @@ export function startRequestingServer(
         path: actionPath,
       };
 
-      console.log(`[Requesting] Received request for path: ${inputs.path}`);
+      // Log request path only (never log credentials or sensitive data)
+      console.log(`[Requesting] Received request for path: ${actionPath}`);
 
       // 1. Trigger the 'request' action.
       const { request } = await Requesting.request(inputs);
