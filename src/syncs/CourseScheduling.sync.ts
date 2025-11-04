@@ -351,7 +351,8 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
 
 /**
  * GetAllSchedulesRequest: Handles getting all schedules for the authenticated user
- * Requires authentication and filters to only return the user's own schedules
+ * Requires authentication, fetches schedules, filters to user's schedules, and responds
+ * Everything is handled in the where clause since getAllSchedules returns an array
  */
 export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
   when: actions(
@@ -360,34 +361,42 @@ export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
       session,
     }, { request }],
   ),
-  where: async (frames) => {
-    return await validateSession(frames, request, session, userId);
-  },
-  then: actions(
-    [CourseScheduling.getAllSchedules, {}],
-  ),
-});
-
-/**
- * GetAllSchedulesResponse: Filters schedules to only return the user's schedules
- * Since getAllSchedules returns an array directly, we need to handle it specially.
- * We'll match on the request and the action completion, then filter and respond.
- */
-export const GetAllSchedulesResponse: Sync = ({
-  request,
-  userId,
-}) => ({
-  when: actions(
-    [Requesting.request, { path: "/CourseScheduling/getAllSchedules" }, {
-      request,
-    }],
-    [CourseScheduling.getAllSchedules, {}, {}],
-  ),
-  then: async (frames: Frames) => {
+  where: async (frames: Frames) => {
     const result = new Frames();
+
     for (const frame of frames) {
       const reqId = (frame as Record<symbol, unknown>)[request] as ID;
-      const uid = (frame as Record<symbol, unknown>)[userId] as ID;
+      const sess = (frame as Record<symbol, unknown>)[session] as ID;
+
+      if (!sess) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Unauthorized: valid session required.",
+        });
+        continue;
+      }
+
+      // Validate session
+      const sessionCheck = await Session.useSession({ s: sess });
+      if (sessionCheck?.error) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Unauthorized: valid session required.",
+        });
+        continue;
+      }
+
+      // Get userID from session
+      const sessionDoc = await Session._getSession({ s: sess });
+      if (!sessionDoc || !sessionDoc.userID) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Unauthorized: valid session required.",
+        });
+        continue;
+      }
+
+      const uid = sessionDoc.userID;
 
       // Get all schedules and filter to only the user's schedules
       const allSchedules = await CourseScheduling.getAllSchedules({});
@@ -401,8 +410,14 @@ export const GetAllSchedulesResponse: Sync = ({
         schedules: userSchedules,
       });
     }
+
     return result;
   },
+  then: actions(
+    // Response already sent in where clause, but then clause required by type system
+    // This won't execute since where clause returns empty frames
+    [Requesting.respond, { request, schedules: [] }],
+  ),
 });
 
 /**
