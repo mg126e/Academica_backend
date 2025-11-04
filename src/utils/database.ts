@@ -8,9 +8,9 @@ import {
   Course,
   Schedule,
   Section,
-} from "@concepts/CourseScheduling/courseSchedulingConcept.ts"; //import interfaces for mongdb collections
+} from "@concepts/CourseScheduling/CourseSchedulingConcept.ts"; //import interfaces for mongdb collections
 
-import { ProfessorRating } from "@concepts/ProfessorRatings/professorRatingsConcept.ts";
+import { ProfessorRating } from "@concepts/ProfessorRatings/ProfessorRatingsConcept.ts";
 
 export function getCourseCollection(db: Db) {
   return db.collection<Course>("courses");

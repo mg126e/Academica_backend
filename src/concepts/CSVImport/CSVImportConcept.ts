@@ -5,7 +5,7 @@ import {
   DayOfWeek,
   Section,
   TimeSlot,
-} from "../CourseScheduling/courseSchedulingConcept.ts";
+} from "../CourseScheduling/CourseSchedulingConcept.ts";
 
 /**
  * @interface CSVSectionData
