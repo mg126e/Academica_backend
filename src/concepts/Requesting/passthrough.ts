@@ -31,6 +31,24 @@ export const inclusions: Record<string, string> = {
   "/api/LikertSurvey/_getRespondentAnswers": "answers are visible",
   "/api/LikertSurvey/submitResponse": "allow anyone to submit response",
   "/api/LikertSurvey/updateResponse": "allow anyone to update their response",
+  "/api/CourseFiltering/getActiveTags":
+    "allow anyone to get active tags becuase these are the user chosen tags",
+  "/api/CourseFiltering/getAllTaggedCourses":
+    "allow anyone to get all tagged courses as all courses are tagged and publicly availbale",
+  "/api/CourseFiltering/getFilteredCourses":
+    "allow anyone to get filtered courses as the user chooses the filters",
+  "/api/CourseFiltering/getTagsByCategory":
+    "allow anyone to get tags grouped by category as tags are public data",
+  "/api/CourseFiltering/searchCourses":
+    "allow anyone to search courses as course data is public",
+  "/api/ProfessorRatings/getRatingForSection":
+    "allow anyone to get public ratings data from Rate My Professor",
+  "/api/CourseScheduling/getCourse": "public course data, read-only query",
+  "/api/CourseScheduling/getSection": "public section data, read-only query",
+  "/api/CourseScheduling/getAllCourses":
+    "public course listing, read-only query",
+  "/api/CourseScheduling/getAllSections":
+    "public section listing, read-only query",
 };
 
 /**
@@ -45,6 +63,9 @@ export const inclusions: Record<string, string> = {
 
 export const exclusions: Array<string> = [
   // Feel free to delete these example exclusions
+  "/api/LikertSurvey/createSurvey",
+  "/api/LikertSurvey/addQuestion",
+  // CSVImport
   "/api/CSVImport/parseCSVFile",
   "/api/CSVImport/parseCSVLine",
   "/api/CSVImport/parseMeetingTime",
@@ -58,4 +79,55 @@ export const exclusions: Array<string> = [
   "/api/CSVImport/clearAllSections",
   "/api/CSVImport/clearSectionsBySemester",
   "/api/CSVImport/updateSectionsWithSemester",
+  // CourseFiltering
+  "/api/CourseFiltering/getGeminiLLM",
+  "/api/CourseFiltering/autoTagCourses",
+  "/api/CourseFiltering/generateSuggestions",
+  "/api/CourseFiltering/suggestAlternatives",
+  // CourseScheduling
+  "/api/CourseScheduling/createCourse",
+  "/api/CourseScheduling/createSection",
+  "/api/CourseScheduling/editSection",
+  "/api/CourseScheduling/getAllSchedules",
+  "/api/CourseScheduling/createSchedule",
+  "/api/CourseScheduling/deleteSchedule",
+  "/api/CourseScheduling/addSection",
+  "/api/CourseScheduling/removeSection",
+  "/api/CourseScheduling/duplicateSchedule",
+  // GoogleCalendar
+  "/api/GoogleCalendar/getAuthorizationUrl",
+  "/api/GoogleCalendar/exchangeCodeForToken",
+  "/api/GoogleCalendar/exportScheduleToCalendar",
+  "/api/GoogleCalendar/createCalendar",
+  "/api/GoogleCalendar/convertSectionToEvents",
+  "/api/GoogleCalendar/createEventFromTimeSlot",
+  "/api/GoogleCalendar/createEventFromMeetingTime",
+  "/api/GoogleCalendar/convertTo24Hour",
+  "/api/GoogleCalendar/findFirstOccurrence",
+  "/api/GoogleCalendar/getColorForDepartment",
+  "/api/GoogleCalendar/createCalendarEvent",
+  // ProfessorRatings
+  "/api/ProfessorRatings/clearCache",
+  "/api/ProfessorRatings/getAllCachedRatings",
+  "/api/ProfessorRatings/refreshRating",
+  "/api/ProfessorRatings/getOrFetchRating",
+  "/api/ProfessorRatings/getCachedRating",
+  "/api/ProfessorRatings/isCacheValid",
+  "/api/ProfessorRatings/fetchRatingFromRMP",
+  "/api/ProfessorRatings/searchProfessorOnRMP",
+  "/api/ProfessorRatings/parseInstructorName",
+  "/api/ProfessorRatings/updateCache",
+  // Session - internal only actions
+  "/api/Session/startSession",
+  "/api/Session/endSession",
+  "/api/Session/useSession",
+  "/api/Session/extendSession",
+  "/api/Session/_expireSessions",
+  "/api/Session/_getUserSessions",
+  "/api/Session/_getSession",
+  // UserAuth - handled by syncs (authenticate and register) or internal-only
+  "/api/UserAuth/register", // Handled by RegisterRequest/RegisterResponse syncs
+  "/api/UserAuth/authenticate", // Handled by AuthenticateRequest/AuthenticateResponse syncs
+  "/api/UserAuth/_getUserByUsername", // Internal-only
+  "/api/UserAuth/_getUserById", // Internal-only
 ];
