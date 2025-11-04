@@ -297,6 +297,18 @@ export function startRequestingServer(
     }
   });
 
+  /**
+   * ROOT ROUTE - Health check endpoint
+   * Provides a simple health check for Render and other monitoring tools
+   */
+  app.get("/", (c) => {
+    return c.json({
+      status: "ok",
+      message: "Academica Backend API is running",
+      baseUrl: REQUESTING_BASE_URL,
+    });
+  });
+
   console.log(
     `\n🚀 Requesting server listening for POST requests at base path of ${routePath}`,
   );

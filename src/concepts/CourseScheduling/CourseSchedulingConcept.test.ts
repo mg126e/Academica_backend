@@ -1,4 +1,4 @@
-// src/concepts/CourseScheduling/courseSchedulingConcept.test.ts
+// src/concepts/CourseScheduling/CourseSchedulingConcept.test.ts
 
 import {
   assertEquals,
@@ -16,7 +16,7 @@ import {
   Schedule,
   Section,
   TimeSlot,
-} from "./courseSchedulingConcept.ts";
+} from "./CourseSchedulingConcept.ts";
 
 // --- Test Data ---
 const TEST_USER_ID_ALICE = "user:alice" as ID;
