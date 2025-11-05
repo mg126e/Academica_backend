@@ -434,7 +434,7 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
 });
 
 /**
- * CreateSectionRequest: Handles creating a new section for a course
+ * CreateSectionRequest: Handles creating a new section for a course (without distribution)
  * Requires authentication via session - allows authenticated users to create sections
  */
 export const CreateSectionRequest: Sync = ({
@@ -444,7 +444,6 @@ export const CreateSectionRequest: Sync = ({
   instructor,
   capacity,
   timeSlots,
-  distribution,
   session,
 }) => ({
   when: actions(
@@ -462,8 +461,66 @@ export const CreateSectionRequest: Sync = ({
     console.log("[CreateSectionRequest] where clause start", {
       frameCount: frames.length,
     });
-    const result = await validateSession(frames, request, session, userId);
+    // Filter out frames that have distribution (handled by CreateSectionRequestWithDistribution)
+    const filtered = new Frames();
+    for (const frame of frames) {
+      const distSymbol = distribution;
+      const hasDistribution = (frame as Record<symbol, unknown>)[distSymbol] !==
+        undefined;
+      if (!hasDistribution) {
+        filtered.push(frame);
+      }
+    }
+    const result = await validateSession(filtered, request, session, userId);
     console.log("[CreateSectionRequest] where clause end", {
+      resultCount: result.length,
+    });
+    return result;
+  },
+  then: actions([
+    CourseScheduling.createSection,
+    {
+      courseId,
+      sectionNumber,
+      instructor,
+      capacity,
+      timeSlots,
+    },
+  ]),
+});
+
+/**
+ * CreateSectionRequestWithDistribution: Handles creating a new section with distribution
+ * Requires authentication via session - allows authenticated users to create sections
+ */
+export const CreateSectionRequestWithDistribution: Sync = ({
+  request,
+  courseId,
+  sectionNumber,
+  instructor,
+  capacity,
+  timeSlots,
+  distribution,
+  session,
+}) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/createSection",
+      courseId,
+      sectionNumber,
+      instructor,
+      capacity,
+      timeSlots,
+      distribution,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    console.log("[CreateSectionRequestWithDistribution] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+    console.log("[CreateSectionRequestWithDistribution] where clause end", {
       resultCount: result.length,
     });
     return result;
