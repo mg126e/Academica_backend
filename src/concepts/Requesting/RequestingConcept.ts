@@ -10,7 +10,7 @@ import "jsr:@std/dotenv/load";
  * # Requesting concept configuration
  * The following environment variables are available:
  *
- * - PORT: the port to the server binds, default 10000
+ * - PORT: the port to the server binds, default 8000
  * - REQUESTING_BASE_URL: the base URL prefix for api requests, default "/api"
  * - REQUESTING_TIMEOUT: the timeout for requests, default 10000ms
  * - REQUESTING_SAVE_RESPONSES: whether to persist responses or not, default true
@@ -182,7 +182,7 @@ export default class RequestingConcept {
  * requests to concept actions by default. These should be
  * @param concepts The complete instantiated concepts import from "@concepts"
  */
-export function startRequestingServer(
+export async function startRequestingServer(
   // deno-lint-ignore no-explicit-any
   concepts: Record<string, any>,
 ) {
@@ -310,9 +310,24 @@ export function startRequestingServer(
     });
   });
 
+  /**
+   * HEALTH CHECK ENDPOINT
+   * Required for Render deployment health checks
+   */
+  app.get("/health", (c) => {
+    return c.json({ status: "ok" });
+  });
+
   console.log(
     `\n🚀 Requesting server listening for POST requests at base path of ${routePath}`,
   );
+  console.log(`📡 Server will bind to 0.0.0.0:${PORT}`);
+  console.log(`🌐 Listening on http://0.0.0.0:${PORT}`);
 
-  Deno.serve({ port: PORT }, app.fetch);
+  const server = Deno.serve(
+    { port: PORT, hostname: "0.0.0.0" },
+    app.fetch,
+  );
+
+  await server.finished;
 }

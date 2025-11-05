@@ -25,4 +25,4 @@ Engine.logging = Logging.TRACE;
 Engine.register(syncs);
 
 // Start a server to provide the Requesting concept with external/system actions.
-startRequestingServer(concepts);
+await startRequestingServer(concepts);
