@@ -427,7 +427,7 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
     }],
     [CourseScheduling.createSchedule, {}, { s: schedule }],
   ),
-  then: actions([Requesting.respond, { request, schedule }]),
+  then: actions([Requesting.respond, { request, s: schedule }]),
 });
 
 /**
