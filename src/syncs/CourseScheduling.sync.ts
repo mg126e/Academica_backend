@@ -662,15 +662,58 @@ export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
 });
 
 /**
- * Synchronization to block admin/system-only CourseScheduling routes.
- * These routes should never be triggered by clients/public requests.
- * Note: createSection is now handled by CreateSectionRequest/CreateSectionResponse syncs
+ * CreateCourseRequest: Handles creating a new course
+ * Requires authentication via session - allows authenticated users to create courses
  */
-export const CourseScheduling_AdminRoutes: Sync = ({ request }) => ({
+export const CreateCourseRequest: Sync = (
+  { request, id, title, department, session },
+) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/createCourse",
+      id,
+      title,
+      department,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    console.log("[CreateCourseRequest] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+    console.log("[CreateCourseRequest] where clause end", {
+      resultCount: result.length,
+    });
+    return result;
+  },
+  then: actions([
+    CourseScheduling.createCourse,
+    { id, title, department },
+  ]),
+});
+
+/**
+ * CreateCourseResponse: Responds with the created course
+ * The course object contains all fields: id, title, department
+ */
+export const CreateCourseResponse: Sync = ({ request, course }) => ({
   when: actions(
     [Requesting.request, { path: "/CourseScheduling/createCourse" }, {
       request,
     }],
+    [CourseScheduling.createCourse, {}, { c: course }],
+  ),
+  then: actions([Requesting.respond, { request, c: course }]),
+});
+
+/**
+ * Synchronization to block admin/system-only CourseScheduling routes.
+ * These routes should never be triggered by clients/public requests.
+ * Note: createCourse and createSection are now handled by their respective Request/Response syncs
+ */
+export const CourseScheduling_AdminRoutes: Sync = ({ request }) => ({
+  when: actions(
     [Requesting.request, { path: "/CourseScheduling/editSection" }, {
       request,
     }],
