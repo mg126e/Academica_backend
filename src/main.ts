@@ -8,9 +8,10 @@ import * as concepts from "@concepts";
 // Use the following line instead to run against the test database, which resets each time.
 // import * as concepts from "@test-concepts";
 
-const { Engine } = concepts;
+const { Engine, db } = concepts;
 import { Logging } from "@engine";
 import { startRequestingServer } from "@concepts/Requesting/RequestingConcept.ts";
+import { ensureIndexes } from "@utils/database.ts";
 import syncs from "@syncs";
 
 /**
@@ -20,6 +21,9 @@ import syncs from "@syncs";
  *   Logging.VERBOSE - display full record of synchronization.
  */
 Engine.logging = Logging.TRACE;
+
+// Ensure database indexes are created for optimal query performance
+await ensureIndexes(db);
 
 // Register synchronizations
 Engine.register(syncs);

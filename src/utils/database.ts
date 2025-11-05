@@ -94,3 +94,35 @@ export async function testDb() {
 export function freshID() {
   return generate() as ID;
 }
+
+/**
+ * Ensures all necessary database indexes are created.
+ * This function is idempotent - safe to call multiple times.
+ * @param db The MongoDB database instance
+ */
+export async function ensureIndexes(db: Db): Promise<void> {
+  try {
+    const schedulesCollection = getScheduleCollection(db);
+
+    // Create index on 'owner' field for efficient queries by user
+    // This optimizes queries like: { owner: userId }
+    await schedulesCollection.createIndex(
+      { owner: 1 },
+      { name: "owner_1", background: true },
+    );
+
+    console.log("✓ Database indexes created successfully");
+  } catch (error) {
+    // Index might already exist, which is fine
+    if ((error as { code?: number }).code === 85) {
+      // IndexOptionsConflict - index already exists with different options
+      console.log("⚠ Some indexes may already exist with different options");
+    } else if ((error as { code?: number }).code === 86) {
+      // Index already exists - this is expected and safe to ignore
+      console.log("✓ Database indexes already exist");
+    } else {
+      console.error("Error creating database indexes:", error);
+      throw error;
+    }
+  }
+}

@@ -414,6 +414,18 @@ export async function startRequestingServer(
         request,
         elapsed: `${elapsed}ms`,
       });
+
+      // Special handling for getAllSchedules: return array directly per API spec
+      if (
+        actionPath === "/CourseScheduling/getAllSchedules" &&
+        response &&
+        typeof response === "object" &&
+        "schedules" in response &&
+        Array.isArray(response.schedules)
+      ) {
+        return c.json(response.schedules);
+      }
+
       return c.json(response);
     } catch (e) {
       const elapsed = Date.now() - startTime;

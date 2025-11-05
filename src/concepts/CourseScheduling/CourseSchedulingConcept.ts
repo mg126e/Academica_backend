@@ -368,6 +368,14 @@ export class CourseSchedulingConcept {
     return await this.db.collection<Schedule>(this.schedulesCollection)
       .find().toArray();
   }
+
+  /** Get all schedules for a specific user by owner ID */
+  async getSchedulesByOwner(body: { userId: string }): Promise<Schedule[]> {
+    const { userId } = body;
+    return await this.db.collection<Schedule>(this.schedulesCollection)
+      .find({ owner: userId })
+      .toArray();
+  }
 }
 
 // Default export for the server to load dynamically

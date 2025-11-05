@@ -419,6 +419,7 @@ export const CreateScheduleRequest: Sync = ({ request, name, session }) => ({
 
 /**
  * CreateScheduleResponse: Responds with the created schedule
+ * The schedule object contains all fields: id, name, sectionIds, owner
  */
 export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
   when: actions(
@@ -432,8 +433,8 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
 
 /**
  * GetAllSchedulesRequest: Handles getting all schedules for the authenticated user
- * Requires authentication, fetches schedules, filters to user's schedules, and responds
- * Everything is handled in the where clause since getAllSchedules returns an array
+ * Requires authentication, fetches schedules directly from database filtered by owner
+ * Everything is handled in the where clause since getSchedulesByOwner returns an array
  */
 export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
   when: actions(
@@ -509,20 +510,18 @@ export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
       const uid = sessionDoc.userID;
       console.log("[GetAllSchedulesRequest] userId retrieved:", uid);
 
-      // Get all schedules and filter to only the user's schedules
-      console.log("[GetAllSchedulesRequest] before getAllSchedules call");
-      const allSchedules = await CourseScheduling.getAllSchedules({});
-      console.log("[GetAllSchedulesRequest] after getAllSchedules call", {
-        totalSchedules: allSchedules.length,
-      });
-      const userSchedules = allSchedules.filter(
-        (s: { owner: string }) => s.owner === uid,
+      // Get schedules for this user directly from the database (optimized query)
+      console.log("[GetAllSchedulesRequest] before getSchedulesByOwner call");
+      const userSchedules = await (CourseScheduling as any).getSchedulesByOwner(
+        {
+          userId: uid,
+        },
       );
-      console.log("[GetAllSchedulesRequest] filtered schedules", {
+      console.log("[GetAllSchedulesRequest] after getSchedulesByOwner call", {
         userScheduleCount: userSchedules.length,
       });
 
-      // Return only the user's schedules
+      // Return the user's schedules
       console.log("[GetAllSchedulesRequest] before respond call");
       await Requesting.respond({
         request: reqId,
