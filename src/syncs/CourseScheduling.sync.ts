@@ -433,6 +433,69 @@ export const CreateScheduleResponse: Sync = ({ request, schedule }) => ({
 });
 
 /**
+ * CreateSectionRequest: Handles creating a new section for a course
+ * Requires authentication via session - allows authenticated users to create sections
+ */
+export const CreateSectionRequest: Sync = ({
+  request,
+  courseId,
+  sectionNumber,
+  instructor,
+  capacity,
+  timeSlots,
+  distribution,
+  session,
+}) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/createSection",
+      courseId,
+      sectionNumber,
+      instructor,
+      capacity,
+      timeSlots,
+      distribution,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    console.log("[CreateSectionRequest] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+    console.log("[CreateSectionRequest] where clause end", {
+      resultCount: result.length,
+    });
+    return result;
+  },
+  then: actions([
+    CourseScheduling.createSection,
+    {
+      courseId,
+      sectionNumber,
+      instructor,
+      capacity,
+      timeSlots,
+      distribution,
+    },
+  ]),
+});
+
+/**
+ * CreateSectionResponse: Responds with the created section
+ * The section object contains all fields: id, courseId, sectionNumber, instructor, capacity, timeSlots, distribution
+ */
+export const CreateSectionResponse: Sync = ({ request, section }) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseScheduling/createSection" }, {
+      request,
+    }],
+    [CourseScheduling.createSection, {}, { s: section }],
+  ),
+  then: actions([Requesting.respond, { request, s: section }]),
+});
+
+/**
  * GetAllSchedulesRequest: Handles getting all schedules for the authenticated user
  * Requires authentication, fetches schedules directly from database filtered by owner
  * Everything is handled in the where clause since getSchedulesByOwner returns an array
@@ -546,13 +609,11 @@ export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
 /**
  * Synchronization to block admin/system-only CourseScheduling routes.
  * These routes should never be triggered by clients/public requests.
+ * Note: createSection is now handled by CreateSectionRequest/CreateSectionResponse syncs
  */
 export const CourseScheduling_AdminRoutes: Sync = ({ request }) => ({
   when: actions(
     [Requesting.request, { path: "/CourseScheduling/createCourse" }, {
-      request,
-    }],
-    [Requesting.request, { path: "/CourseScheduling/createSection" }, {
       request,
     }],
     [Requesting.request, { path: "/CourseScheduling/editSection" }, {
