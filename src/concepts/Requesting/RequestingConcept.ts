@@ -228,12 +228,62 @@ export async function startRequestingServer(
     throw new Error("Requesting concept missing or broken.");
   }
   const app = new Hono();
-  app.use(
-    "/*",
-    cors({
-      origin: REQUESTING_ALLOWED_DOMAIN,
-    }),
-  );
+  // Configure CORS to allow requests from frontend
+  // This handles both simple and preflight (OPTIONS) requests
+  // Note: When using credentials: true, origin cannot be "*", so we need a function
+  const corsConfig: Parameters<typeof cors>[0] =
+    REQUESTING_ALLOWED_DOMAIN === "*"
+      ? {
+        origin: "*",
+        credentials: false,
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Session-ID",
+          "Accept",
+          "Origin",
+          "X-Requested-With",
+        ],
+        exposeHeaders: [
+          "Content-Type",
+          "Content-Length",
+          "ETag",
+        ],
+        maxAge: 86400, // 24 hours
+      }
+      : {
+        origin: (origin) => {
+          // Support comma-separated list of allowed origins
+          const allowed = REQUESTING_ALLOWED_DOMAIN.split(",").map((s) =>
+            s.trim()
+          );
+          // If origin is provided and in allowed list, return it
+          if (origin && allowed.includes(origin)) {
+            return origin;
+          }
+          // Otherwise return the first allowed origin
+          return allowed[0] || "*";
+        },
+        credentials: true,
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Session-ID",
+          "Accept",
+          "Origin",
+          "X-Requested-With",
+        ],
+        exposeHeaders: [
+          "Content-Type",
+          "Content-Length",
+          "ETag",
+        ],
+        maxAge: 86400, // 24 hours
+      };
+
+  app.use("/*", cors(corsConfig));
 
   /**
    * PASSTHROUGH ROUTES
@@ -311,7 +361,7 @@ export async function startRequestingServer(
       const actionPath = c.req.path.substring(REQUESTING_BASE_URL.length);
 
       // Extract session from headers (X-Session-ID or Authorization header)
-      const sessionId = c.req.header("X-Session-ID") || 
+      const sessionId = c.req.header("X-Session-ID") ||
         c.req.header("Authorization")?.replace("Bearer ", "") ||
         null;
 
@@ -327,7 +377,9 @@ export async function startRequestingServer(
       if (sessionId) {
         console.log("[Requesting] Session extracted from headers", {
           hasSession: true,
-          headerUsed: c.req.header("X-Session-ID") ? "X-Session-ID" : "Authorization",
+          headerUsed: c.req.header("X-Session-ID")
+            ? "X-Session-ID"
+            : "Authorization",
         });
       } else {
         console.log("[Requesting] No session found in headers");
