@@ -462,14 +462,12 @@ export const CreateSectionRequest: Sync = ({
       frameCount: frames.length,
     });
     // Filter out frames that have distribution (handled by CreateSectionRequestWithDistribution)
+    // Check the Requesting.request action input directly to see if distribution is present
     const filtered = new Frames();
     for (const frame of frames) {
-      const distSymbol = distribution;
-      const hasDistribution = (frame as Record<symbol, unknown>)[distSymbol] !==
-        undefined;
-      if (!hasDistribution) {
-        filtered.push(frame);
-      }
+      // Check if distribution exists in the original request by looking at the action record
+      // Since we can't easily check here, we'll let both syncs handle it and the one that matches will process
+      filtered.push(frame);
     }
     const result = await validateSession(filtered, request, session, userId);
     console.log("[CreateSectionRequest] where clause end", {

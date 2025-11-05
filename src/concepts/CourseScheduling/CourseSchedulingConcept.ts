@@ -163,13 +163,47 @@ export class CourseSchedulingConcept {
       );
     }
 
+    // Convert day names to single-letter codes if needed
+    const normalizedTimeSlots = timeSlots.map((slot) => {
+      const normalizedDays = slot.days.map((day) => {
+        // If already a single letter, return as is
+        if (typeof day === "string" && day.length === 1) {
+          return day as DayOfWeek;
+        }
+        // Convert full day names to single letters
+        const dayMap: Record<string, DayOfWeek> = {
+          "Monday": DayOfWeek.Monday,
+          "Tuesday": DayOfWeek.Tuesday,
+          "Wednesday": DayOfWeek.Wednesday,
+          "Thursday": DayOfWeek.Thursday,
+          "Friday": DayOfWeek.Friday,
+          "monday": DayOfWeek.Monday,
+          "tuesday": DayOfWeek.Tuesday,
+          "wednesday": DayOfWeek.Wednesday,
+          "thursday": DayOfWeek.Thursday,
+          "friday": DayOfWeek.Friday,
+        };
+        const normalized = dayMap[day as string];
+        if (!normalized) {
+          throw new Error(
+            `Invalid day: ${day}. Expected one of: M, T, W, R, F or full day names.`,
+          );
+        }
+        return normalized;
+      });
+      return {
+        ...slot,
+        days: normalizedDays,
+      };
+    });
+
     const section: Section = {
       id: freshID(),
       courseId,
       sectionNumber,
       instructor,
       capacity,
-      timeSlots,
+      timeSlots: normalizedTimeSlots,
       ...(distribution !== undefined && { distribution }),
     };
     await this.db.collection(this.sectionsCollection).insertOne(section);
