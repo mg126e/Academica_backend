@@ -206,20 +206,37 @@ export class CourseSchedulingConcept {
   async createSchedule(
     body: { userId: string; name: string },
   ): Promise<{ s: Schedule }> { //TESTED
+    console.log("[CourseScheduling.createSchedule] start", {
+      userId: body.userId,
+      name: body.name,
+    });
     const { userId, name } = body;
 
     // Validation: check for required fields
     if (!userId || !name) {
+      console.log(
+        "[CourseScheduling.createSchedule] validation failed - missing fields",
+      );
       throw new Error("All fields (userId, name) are required");
     }
 
+    console.log(
+      "[CourseScheduling.createSchedule] before creating schedule object",
+    );
     const schedule: Schedule = {
       id: freshID(),
       name,
       sectionIds: [],
       owner: userId,
     };
+    console.log("[CourseScheduling.createSchedule] before DB insertOne", {
+      scheduleId: schedule.id,
+    });
     await this.db.collection(this.schedulesCollection).insertOne(schedule);
+    console.log("[CourseScheduling.createSchedule] after DB insertOne", {
+      scheduleId: schedule.id,
+    });
+    console.log("[CourseScheduling.createSchedule] returning result");
     return { s: schedule };
   }
 
@@ -324,6 +341,17 @@ export class CourseSchedulingConcept {
         id: sectionId,
       });
     return section ? [section] : null;
+  }
+
+  async getSchedule(body: { scheduleId: string }): Promise<Schedule[] | null> {
+    const { scheduleId } = body;
+    const schedule = await this.db.collection<Schedule>(
+      this.schedulesCollection,
+    )
+      .findOne({
+        id: scheduleId,
+      });
+    return schedule ? [schedule] : null;
   }
 
   async getAllCourses(body: {} = {}): Promise<Course[]> {

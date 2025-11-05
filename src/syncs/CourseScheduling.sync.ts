@@ -37,47 +37,72 @@ async function validateSession(
   sessionSymbol: symbol,
   userIdSymbol: symbol,
 ): Promise<Frames> {
+  console.log("[validateSession] start", { frameCount: frames.length });
   const result = new Frames();
 
   for (const frame of frames) {
     const reqId = (frame as Record<symbol, unknown>)[reqSymbol] as ID;
     const sess = (frame as Record<symbol, unknown>)[sessionSymbol] as ID;
 
+    console.log("[validateSession] processing frame", {
+      request: reqId,
+      session: sess,
+    });
+
     if (!sess) {
+      console.log("[validateSession] no session, responding with error");
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: valid session required.",
       });
+      console.log("[validateSession] error response sent");
       continue;
     }
 
     // Validate session
+    console.log("[validateSession] before useSession call");
     const sessionCheck = await Session.useSession({ s: sess });
+    console.log("[validateSession] after useSession call", {
+      error: sessionCheck?.error,
+    });
     if (sessionCheck?.error) {
+      console.log("[validateSession] session invalid, responding with error");
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: valid session required.",
       });
+      console.log("[validateSession] error response sent");
       continue;
     }
 
     // Get userID from session
+    console.log("[validateSession] before _getSession call");
     const sessionDoc = await Session._getSession({ s: sess });
+    console.log("[validateSession] after _getSession call", {
+      hasDoc: !!sessionDoc,
+      hasUserId: !!sessionDoc?.userID,
+    });
     if (!sessionDoc || !sessionDoc.userID) {
+      console.log(
+        "[validateSession] no session doc or userId, responding with error",
+      );
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: valid session required.",
       });
+      console.log("[validateSession] error response sent");
       continue;
     }
 
     const uid = sessionDoc.userID;
+    console.log("[validateSession] validation passed, userId:", uid);
 
     // Authorization passed - add userId to frame and continue
     const newFrame: Frame = { ...frame, [userIdSymbol]: uid };
     result.push(newFrame);
   }
 
+  console.log("[validateSession] end", { resultCount: result.length });
   return result;
 }
 
@@ -91,6 +116,9 @@ async function validateScheduleOwnership(
   sessionSymbol: symbol,
   userIdSymbol: symbol,
 ): Promise<Frames> {
+  console.log("[validateScheduleOwnership] start", {
+    frameCount: frames.length,
+  });
   const result = new Frames();
 
   for (const frame of frames) {
@@ -99,55 +127,101 @@ async function validateScheduleOwnership(
       (frame as Record<symbol, unknown>)[scheduleIdSymbol] as string;
     const sess = (frame as Record<symbol, unknown>)[sessionSymbol] as ID;
 
+    console.log("[validateScheduleOwnership] processing frame", {
+      request: reqId,
+      scheduleId: schedId,
+      session: sess,
+    });
+
     if (!sess) {
+      console.log(
+        "[validateScheduleOwnership] no session, responding with error",
+      );
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: user not permitted to modify this schedule.",
       });
+      console.log("[validateScheduleOwnership] error response sent");
       continue;
     }
 
     // Validate session
+    console.log("[validateScheduleOwnership] before useSession call");
     const sessionCheck = await Session.useSession({ s: sess });
+    console.log("[validateScheduleOwnership] after useSession call", {
+      error: sessionCheck?.error,
+    });
     if (sessionCheck?.error) {
+      console.log(
+        "[validateScheduleOwnership] session invalid, responding with error",
+      );
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: user not permitted to modify this schedule.",
       });
+      console.log("[validateScheduleOwnership] error response sent");
       continue;
     }
 
     // Get userID from session
+    console.log("[validateScheduleOwnership] before _getSession call");
     const sessionDoc = await Session._getSession({ s: sess });
+    console.log("[validateScheduleOwnership] after _getSession call", {
+      hasDoc: !!sessionDoc,
+      hasUserId: !!sessionDoc?.userID,
+    });
     if (!sessionDoc || !sessionDoc.userID) {
+      console.log(
+        "[validateScheduleOwnership] no session doc or userId, responding with error",
+      );
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: user not permitted to modify this schedule.",
       });
+      console.log("[validateScheduleOwnership] error response sent");
       continue;
     }
 
     const uid = sessionDoc.userID;
+    console.log("[validateScheduleOwnership] userId retrieved:", uid);
 
-    // Check schedule ownership
-    const allSchedules = await CourseScheduling.getAllSchedules({});
-    const schedule = allSchedules.find((s: { id: string; owner: string }) =>
-      s.id === schedId
-    );
+    // Check schedule ownership - OPTIMIZED: use findOne instead of getAllSchedules
+    console.log("[validateScheduleOwnership] before schedule findOne call", {
+      scheduleId: schedId,
+    });
+    const schedule = await (CourseScheduling as any).getSchedule({
+      scheduleId: schedId,
+    });
+    console.log("[validateScheduleOwnership] after schedule findOne call", {
+      found: !!schedule,
+      owner: schedule?.[0]?.owner,
+    });
 
-    if (!schedule || schedule.owner !== uid) {
+    if (!schedule || !schedule[0] || schedule[0].owner !== uid) {
+      console.log(
+        "[validateScheduleOwnership] schedule not found or wrong owner, responding with error",
+      );
       await Requesting.respond({
         request: reqId,
         error: "Unauthorized: user not permitted to modify this schedule.",
       });
+      console.log("[validateScheduleOwnership] error response sent");
       continue;
     }
+
+    console.log(
+      "[validateScheduleOwnership] ownership validated, userId:",
+      uid,
+    );
 
     // Authorization passed - add userId to frame and continue
     const newFrame: Frame = { ...frame, [userIdSymbol]: uid };
     result.push(newFrame);
   }
 
+  console.log("[validateScheduleOwnership] end", {
+    resultCount: result.length,
+  });
   return result;
 }
 
@@ -318,7 +392,7 @@ export const DuplicateScheduleResponse: Sync = ({ request, schedule }) => ({
 
 /**
  * CreateScheduleRequest: Handles creating a new schedule for a user
- * Requires authentication - sets the user as the schedule owner
+ * Requires authentication via session - sets the user as the schedule owner
  */
 export const CreateScheduleRequest: Sync = ({ request, name, session }) => ({
   when: actions(
@@ -329,7 +403,14 @@ export const CreateScheduleRequest: Sync = ({ request, name, session }) => ({
     }, { request }],
   ),
   where: async (frames) => {
-    return await validateSession(frames, request, session, userId);
+    console.log("[CreateScheduleRequest] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+    console.log("[CreateScheduleRequest] where clause end", {
+      resultCount: result.length,
+    });
+    return result;
   },
   then: actions(
     [CourseScheduling.createSchedule, { userId, name }],
@@ -362,55 +443,97 @@ export const GetAllSchedulesRequest: Sync = ({ request, session }) => ({
     }, { request }],
   ),
   where: async (frames: Frames) => {
+    console.log("[GetAllSchedulesRequest] where clause start", {
+      frameCount: frames.length,
+    });
     const result = new Frames();
 
     for (const frame of frames) {
       const reqId = (frame as Record<symbol, unknown>)[request] as ID;
       const sess = (frame as Record<symbol, unknown>)[session] as ID;
 
+      console.log("[GetAllSchedulesRequest] processing frame", {
+        request: reqId,
+        session: sess,
+      });
+
       if (!sess) {
+        console.log(
+          "[GetAllSchedulesRequest] no session, responding with error",
+        );
         await Requesting.respond({
           request: reqId,
           error: "Unauthorized: valid session required.",
         });
+        console.log("[GetAllSchedulesRequest] error response sent");
         continue;
       }
 
       // Validate session
+      console.log("[GetAllSchedulesRequest] before useSession call");
       const sessionCheck = await Session.useSession({ s: sess });
+      console.log("[GetAllSchedulesRequest] after useSession call", {
+        error: sessionCheck?.error,
+      });
       if (sessionCheck?.error) {
+        console.log(
+          "[GetAllSchedulesRequest] session invalid, responding with error",
+        );
         await Requesting.respond({
           request: reqId,
           error: "Unauthorized: valid session required.",
         });
+        console.log("[GetAllSchedulesRequest] error response sent");
         continue;
       }
 
       // Get userID from session
+      console.log("[GetAllSchedulesRequest] before _getSession call");
       const sessionDoc = await Session._getSession({ s: sess });
+      console.log("[GetAllSchedulesRequest] after _getSession call", {
+        hasDoc: !!sessionDoc,
+        hasUserId: !!sessionDoc?.userID,
+      });
       if (!sessionDoc || !sessionDoc.userID) {
+        console.log(
+          "[GetAllSchedulesRequest] no session doc or userId, responding with error",
+        );
         await Requesting.respond({
           request: reqId,
           error: "Unauthorized: valid session required.",
         });
+        console.log("[GetAllSchedulesRequest] error response sent");
         continue;
       }
 
       const uid = sessionDoc.userID;
+      console.log("[GetAllSchedulesRequest] userId retrieved:", uid);
 
       // Get all schedules and filter to only the user's schedules
+      console.log("[GetAllSchedulesRequest] before getAllSchedules call");
       const allSchedules = await CourseScheduling.getAllSchedules({});
+      console.log("[GetAllSchedulesRequest] after getAllSchedules call", {
+        totalSchedules: allSchedules.length,
+      });
       const userSchedules = allSchedules.filter(
         (s: { owner: string }) => s.owner === uid,
       );
+      console.log("[GetAllSchedulesRequest] filtered schedules", {
+        userScheduleCount: userSchedules.length,
+      });
 
       // Return only the user's schedules
+      console.log("[GetAllSchedulesRequest] before respond call");
       await Requesting.respond({
         request: reqId,
         schedules: userSchedules,
       });
+      console.log("[GetAllSchedulesRequest] respond sent");
     }
 
+    console.log("[GetAllSchedulesRequest] where clause end", {
+      resultCount: result.length,
+    });
     return result;
   },
   then: actions(

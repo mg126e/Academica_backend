@@ -118,17 +118,33 @@ export default class RequestingConcept {
   async respond(
     { request, ...response }: { request: Request; [key: string]: unknown },
   ): Promise<{ request: string }> {
+    console.log("[Requesting.respond] start", {
+      request,
+      hasError: !!response.error,
+      hasSchedule: !!response.schedule,
+    });
     const pendingRequest = this.pending.get(request);
     if (pendingRequest) {
       // Resolve the promise for any waiting `_awaitResponse` call.
+      console.log("[Requesting.respond] resolving pending request", {
+        request,
+      });
       pendingRequest.resolve(response);
+      console.log("[Requesting.respond] pending request resolved", { request });
+    } else {
+      console.log("[Requesting.respond] WARNING: no pending request found", {
+        request,
+      });
     }
 
     // Update the persisted request document with the response.
     if (REQUESTING_SAVE_RESPONSES) {
+      console.log("[Requesting.respond] before DB updateOne", { request });
       await this.requests.updateOne({ _id: request }, { $set: { response } });
+      console.log("[Requesting.respond] after DB updateOne", { request });
     }
 
+    console.log("[Requesting.respond] end", { request });
     return { request };
   }
 
@@ -140,23 +156,38 @@ export default class RequestingConcept {
   async _awaitResponse(
     { request }: { request: Request },
   ): Promise<{ response: unknown }[]> {
+    console.log("[Requesting._awaitResponse] start", {
+      request,
+      timeout: this.timeout,
+    });
     const pendingRequest = this.pending.get(request);
 
     if (!pendingRequest) {
       // The request might have been processed already or never existed.
       // We could check the database for a persisted response here if needed.
+      console.log("[Requesting._awaitResponse] ERROR: no pending request", {
+        request,
+      });
       throw new Error(
         `Request ${request} is not pending or does not exist: it may have timed-out.`,
       );
     }
 
+    console.log("[Requesting._awaitResponse] waiting for response or timeout", {
+      request,
+    });
     let timeoutId: number;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(
-        () =>
+        () => {
+          console.log("[Requesting._awaitResponse] TIMEOUT", {
+            request,
+            timeout: this.timeout,
+          });
           reject(
             new Error(`Request ${request} timed out after ${this.timeout}ms`),
-          ),
+          );
+        },
         this.timeout,
       );
     });
@@ -167,11 +198,16 @@ export default class RequestingConcept {
         pendingRequest.promise,
         timeoutPromise,
       ]);
+      console.log("[Requesting._awaitResponse] received response", {
+        request,
+        hasError: !!(response as Record<string, unknown>)?.error,
+      });
       return [{ response }];
     } finally {
       // Clean up regardless of outcome.
       clearTimeout(timeoutId!);
       this.pending.delete(request);
+      console.log("[Requesting._awaitResponse] cleanup done", { request });
     }
   }
 }
@@ -253,9 +289,17 @@ export async function startRequestingServer(
 
   const routePath = `${REQUESTING_BASE_URL}/*`;
   app.post(routePath, async (c) => {
+    const startTime = Date.now();
     try {
+      console.log("[Requesting] POST route handler start", {
+        path: c.req.path,
+      });
       const body = await c.req.json();
+      console.log("[Requesting] POST route handler body parsed", {
+        path: c.req.path,
+      });
       if (typeof body !== "object" || body === null) {
+        console.log("[Requesting] POST route handler invalid body");
         return c.json(
           { error: "Invalid request body. Must be a JSON object." },
           400,
@@ -266,33 +310,72 @@ export async function startRequestingServer(
       // e.g., if base is /api and request is /api/users/create, path is /users/create
       const actionPath = c.req.path.substring(REQUESTING_BASE_URL.length);
 
+      // Extract session from headers (X-Session-ID or Authorization header)
+      const sessionId = c.req.header("X-Session-ID") || 
+        c.req.header("Authorization")?.replace("Bearer ", "") ||
+        null;
+
       // Combine the path from the URL with the JSON body to form the action's input.
+      // Include session if available from headers
       const inputs = {
         ...body,
         path: actionPath,
+        ...(sessionId ? { session: sessionId } : {}),
       };
+
+      // Log session extraction (but not the actual session ID for security)
+      if (sessionId) {
+        console.log("[Requesting] Session extracted from headers", {
+          hasSession: true,
+          headerUsed: c.req.header("X-Session-ID") ? "X-Session-ID" : "Authorization",
+        });
+      } else {
+        console.log("[Requesting] No session found in headers");
+      }
 
       // Log request path only (never log credentials or sensitive data)
       console.log(`[Requesting] Received request for path: ${actionPath}`);
 
       // 1. Trigger the 'request' action.
+      console.log("[Requesting] POST route handler before request() call");
       const { request } = await Requesting.request(inputs);
+      console.log("[Requesting] POST route handler after request() call", {
+        request,
+      });
 
       // 2. Await the response via the query. This is where the server waits for
       //    synchronizations to trigger the 'respond' action.
+      console.log(
+        "[Requesting] POST route handler before _awaitResponse() call",
+        { request },
+      );
       const responseArray = await Requesting._awaitResponse({ request });
+      console.log(
+        "[Requesting] POST route handler after _awaitResponse() call",
+        { request, hasResponse: !!responseArray[0]?.response },
+      );
 
       // 3. Send the response back to the client.
       const { response } = responseArray[0];
+      const elapsed = Date.now() - startTime;
+      console.log("[Requesting] POST route handler sending response", {
+        request,
+        elapsed: `${elapsed}ms`,
+      });
       return c.json(response);
     } catch (e) {
+      const elapsed = Date.now() - startTime;
       if (e instanceof Error) {
-        console.error(`[Requesting] Error processing request:`, e.message);
+        console.error(
+          `[Requesting] Error processing request (${elapsed}ms):`,
+          e.message,
+        );
         if (e.message.includes("timed out")) {
           return c.json({ error: "Request timed out." }, 504); // Gateway Timeout
         }
         return c.json({ error: "An internal server error occurred." }, 500);
       } else {
+        console.error(`[Requesting] Unknown error (${elapsed}ms):`, e);
         return c.json({ error: "unknown error occurred." }, 418);
       }
     }
