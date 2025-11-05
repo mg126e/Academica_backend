@@ -435,6 +435,17 @@ export async function startRequestingServer(
         return c.json(response.schedules);
       }
 
+      // Special handling for suggestAlternatives: return array directly per API spec
+      if (
+        actionPath === "/CourseFiltering/suggestAlternatives" &&
+        response &&
+        typeof response === "object" &&
+        "suggestions" in response &&
+        Array.isArray(response.suggestions)
+      ) {
+        return c.json(response.suggestions);
+      }
+
       return c.json(response);
     } catch (e) {
       const elapsed = Date.now() - startTime;

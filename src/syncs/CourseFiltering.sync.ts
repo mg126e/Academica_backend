@@ -114,5 +114,17 @@ export const SuggestAlternativesRequest: Sync = ({
 
 /**
  * SuggestAlternativesResponse: Responds with AI-generated course suggestions
- * Note: suggestAlternatives returns FilteredCourse[] directly, handled inline
+ * Note: suggestAlternatives returns FilteredCourse[] directly, so we need to handle it specially
+ * Since actions return objects, we'll need to check the actual implementation
  */
+export const SuggestAlternativesResponse: Sync = (
+  { request, suggestions },
+) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseFiltering/suggestAlternatives" }, {
+      request,
+    }],
+    [CourseFiltering.suggestAlternatives, {}, { suggestions }],
+  ),
+  then: actions([Requesting.respond, { request, suggestions }]),
+});

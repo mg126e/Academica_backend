@@ -201,11 +201,11 @@ export default class CourseFilteringConcept {
   async suggestAlternatives(body: {
     course: FilteredCourse;
     variant?: "base" | "timeFocused" | "topicFocused";
-  }): Promise<FilteredCourse[]> {
+  }): Promise<{ suggestions: FilteredCourse[] }> {
     const { course, variant = "base" } = body;
 
     if (!course) {
-      return [];
+      return { suggestions: [] };
     }
 
     const allCourses = await this.getAllTaggedCourses();
@@ -221,7 +221,7 @@ export default class CourseFilteringConcept {
       variant,
     );
 
-    return suggestions;
+    return { suggestions };
   }
 
   /**
