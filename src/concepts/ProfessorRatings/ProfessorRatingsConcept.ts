@@ -215,32 +215,36 @@ export default class ProfessorRatingsConcept {
     firstName: string,
     lastName: string,
   ): Promise<RMPResponse | null> {
-    try {
-      // RMP GraphQL query
-      const query = {
-        query: `query NewSearchTeachersQuery($text: String!, $schoolID: ID!) {
-          newSearch {
-            teachers(query: {text: $text, schoolID: $schoolID}) {
-              edges {
-                node {
-                  legacyId
-                  firstName
-                  lastName
-                  avgRating
-                  avgDifficulty
-                  numRatings
-                  wouldTakeAgainPercent
-                }
+    // RMP GraphQL query
+    const query = {
+      query: `query NewSearchTeachersQuery($text: String!, $schoolID: ID!) {
+        newSearch {
+          teachers(query: {text: $text, schoolID: $schoolID}) {
+            edges {
+              node {
+                legacyId
+                firstName
+                lastName
+                avgRating
+                avgDifficulty
+                numRatings
+                wouldTakeAgainPercent
               }
             }
           }
-        }`,
-        variables: {
-          text: `${firstName} ${lastName}`,
-          schoolID: btoa(`School-${this.schoolId}`), // Base64 encode school ID
-        },
-      };
+        }
+      }`,
+      variables: {
+        text: `${firstName} ${lastName}`,
+        schoolID: btoa(`School-${this.schoolId}`), // Base64 encode school ID
+      },
+    };
 
+    // Add timeout to prevent hanging requests (8 seconds, leaving 2 seconds buffer for server timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
       const response = await fetch(this.rmpApiBaseUrl, {
         method: "POST",
         headers: {
@@ -248,7 +252,9 @@ export default class ProfessorRatingsConcept {
           "Authorization": `Basic ${Deno.env.get("RMP_API_KEY") || ""}`,
         },
         body: JSON.stringify(query),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.warn(
@@ -277,7 +283,14 @@ export default class ProfessorRatingsConcept {
         lastName: professor.lastName,
       };
     } catch (error) {
-      console.error("Error calling RMP API:", error);
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        console.warn(
+          `RMP API request timed out after 8 seconds for ${firstName} ${lastName}`,
+        );
+      } else {
+        console.error("Error calling RMP API:", error);
+      }
       return null;
     }
   }
@@ -295,7 +308,7 @@ export default class ProfessorRatingsConcept {
     lastName: string;
   } {
     // Remove common titles
-    let cleanName = fullName
+    const cleanName = fullName
       .replace(/^(Dr\.|Prof\.|Professor)\s+/i, "")
       .trim();
 
