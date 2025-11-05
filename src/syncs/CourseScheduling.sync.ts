@@ -379,6 +379,7 @@ export const DuplicateScheduleRequest: Sync = (
 
 /**
  * DuplicateScheduleResponse: Responds with the duplicated schedule
+ * The schedule object contains all fields: id, name, sectionIds, owner
  */
 export const DuplicateScheduleResponse: Sync = ({ request, schedule }) => ({
   when: actions(
@@ -387,7 +388,7 @@ export const DuplicateScheduleResponse: Sync = ({ request, schedule }) => ({
     }],
     [CourseScheduling.duplicateSchedule, {}, { s: schedule }],
   ),
-  then: actions([Requesting.respond, { request, schedule }]),
+  then: actions([Requesting.respond, { request, s: schedule }]),
 });
 
 /**

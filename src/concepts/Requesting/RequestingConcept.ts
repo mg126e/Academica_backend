@@ -122,6 +122,8 @@ export default class RequestingConcept {
       request,
       hasError: !!response.error,
       hasSchedule: !!response.schedule,
+      hasS: !!response.s,
+      responseKeys: Object.keys(response),
     });
     const pendingRequest = this.pending.get(request);
     if (pendingRequest) {
@@ -412,7 +414,14 @@ export async function startRequestingServer(
       const elapsed = Date.now() - startTime;
       console.log("[Requesting] POST route handler sending response", {
         request,
+        actionPath,
         elapsed: `${elapsed}ms`,
+        hasResponse: !!response,
+        responseKeys: response && typeof response === "object"
+          ? Object.keys(response)
+          : null,
+        hasError: !!(response as Record<string, unknown>)?.error,
+        hasSchedule: !!(response as Record<string, unknown>)?.s,
       });
 
       // Special handling for getAllSchedules: return array directly per API spec
