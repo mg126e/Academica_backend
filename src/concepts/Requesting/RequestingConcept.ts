@@ -285,7 +285,13 @@ export async function startRequestingServer(
         maxAge: 86400, // 24 hours
       };
 
+  // Apply CORS middleware to all routes
   app.use("/*", cors(corsConfig));
+
+  // Explicitly handle OPTIONS requests for preflight
+  app.options("/*", (c) => {
+    return c.text("", 204);
+  });
 
   /**
    * PASSTHROUGH ROUTES
