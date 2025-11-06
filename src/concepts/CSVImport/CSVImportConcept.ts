@@ -268,10 +268,11 @@ export class CSVImportConcept {
           // Create or find course
           let course = await coursesCol.findOne({ id: row.course_code });
           if (!course) {
-            const newCourse = {
+            const newCourse: Course = {
               id: row.course_code,
               title: row.title,
               department: row.course_code.split(" ")[0], // Extract department from course code
+              isSystemCreated: true, // CSV imported courses are system-created
             };
             await coursesCol.insertOne(newCourse);
           }

@@ -70,7 +70,7 @@ export default class ProfessorRatingsConcept {
     try {
       const { sectionId } = body;
 
-      // Look up the section to get instructor name
+      // Look up the section to get instructor name and course ID
       const section = await this.db.collection(this.sectionsCollection)
         .findOne({ id: sectionId });
 
@@ -78,6 +78,29 @@ export default class ProfessorRatingsConcept {
         return {
           success: false,
           message: "Section not found",
+        };
+      }
+
+      // Check if the course is system-created
+      // Only system-created courses should use Rate My Professor
+      const course = await this.db.collection("courses")
+        .findOne({ id: section.courseId });
+
+      // Reject ratings for user-created courses (isSystemCreated === false)
+      // Allow ratings for system-created courses (isSystemCreated === true or undefined for backward compatibility)
+      if (course && course.isSystemCreated === false) {
+        return {
+          success: false,
+          message:
+            "Professor ratings are only available for system-created courses",
+        };
+      }
+
+      // If course doesn't exist, also reject (safety measure)
+      if (!course) {
+        return {
+          success: false,
+          message: "Course not found for this section",
         };
       }
 
@@ -89,7 +112,7 @@ export default class ProfessorRatingsConcept {
         };
       }
 
-      // Get or fetch rating
+      // Get or fetch rating (only for system-created courses)
       const rating = await this.getOrFetchRating(instructorName);
 
       return {

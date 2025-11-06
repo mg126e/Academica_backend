@@ -35,6 +35,7 @@ export interface Course {
   id: string; // Unique identifier, e.g., "CS-101"
   title: string; // e.g., "Introduction to Computer Science"
   department: string; // e.g., "Computer Science"
+  isSystemCreated?: boolean; // true for system-created courses (default), false for user-created
 }
 
 /**
@@ -46,7 +47,7 @@ export interface Section {
   id: string; // Globally unique identifier for the section, e.g., "SEC-48102"
   courseId: string; // Foreign key referencing Course.id
   sectionNumber: string; // e.g., "1" or "2"
-  instructor: string; // e.g., "Dr. Ada Lovelace"
+  instructor?: string; // e.g., "Dr. Ada Lovelace" (optional for user-created sections)
   capacity: number; // Maximum number of students
   timeSlots: TimeSlot[]; // An array of meeting times for this section
   distribution?: string; // Distribution requirements, e.g., "HS, SBA"
@@ -127,7 +128,9 @@ export class CourseSchedulingConcept {
       throw new Error("All fields (id, title, department) are required");
     }
 
-    const course: Course = { id, title, department };
+    // User-created courses are marked as not system-created
+    // System-created courses (from CSV import, etc.) should set isSystemCreated: true
+    const course: Course = { id, title, department, isSystemCreated: false };
     await this.db.collection(this.coursesCollection).insertOne(course);
     return { c: course };
   }
@@ -141,7 +144,7 @@ export class CourseSchedulingConcept {
     body: {
       courseId: string;
       sectionNumber: string;
-      instructor: string;
+      instructor?: string;
       capacity: number;
       timeSlots: TimeSlot[];
       distribution?: string;
@@ -157,9 +160,10 @@ export class CourseSchedulingConcept {
     } = body;
 
     // Validation: check for required fields
-    if (!courseId || !sectionNumber || !instructor || capacity < 0) {
+    // Instructor is optional for user-created sections
+    if (!courseId || !sectionNumber || capacity < 0) {
       throw new Error(
-        "All fields (courseId, sectionNumber, instructor, capacity) are required",
+        "All fields (courseId, sectionNumber, capacity) are required",
       );
     }
 
@@ -201,9 +205,9 @@ export class CourseSchedulingConcept {
       id: freshID(),
       courseId,
       sectionNumber,
-      instructor,
       capacity,
       timeSlots: normalizedTimeSlots,
+      ...(instructor !== undefined && { instructor }),
       ...(distribution !== undefined && { distribution }),
     };
     await this.db.collection(this.sectionsCollection).insertOne(section);

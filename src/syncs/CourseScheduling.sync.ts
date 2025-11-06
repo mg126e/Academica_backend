@@ -451,7 +451,6 @@ export const CreateSectionRequest: Sync = ({
       path: "/CourseScheduling/createSection",
       courseId,
       sectionNumber,
-      instructor,
       capacity,
       timeSlots,
       session,
@@ -480,9 +479,9 @@ export const CreateSectionRequest: Sync = ({
     {
       courseId,
       sectionNumber,
-      instructor,
       capacity,
       timeSlots,
+      ...(instructor !== undefined && { instructor }),
     },
   ]),
 });
@@ -506,7 +505,6 @@ export const CreateSectionRequestWithDistribution: Sync = ({
       path: "/CourseScheduling/createSection",
       courseId,
       sectionNumber,
-      instructor,
       capacity,
       timeSlots,
       distribution,
@@ -528,17 +526,17 @@ export const CreateSectionRequestWithDistribution: Sync = ({
     {
       courseId,
       sectionNumber,
-      instructor,
       capacity,
       timeSlots,
       distribution,
+      ...(instructor !== undefined && { instructor }),
     },
   ]),
 });
 
 /**
  * CreateSectionResponse: Responds with the created section
- * The section object contains all fields: id, courseId, sectionNumber, instructor, capacity, timeSlots, distribution
+ * The section object contains all fields: id, courseId, sectionNumber, capacity, timeSlots, and optionally instructor and distribution
  */
 export const CreateSectionResponse: Sync = ({ request, section }) => ({
   when: actions(
@@ -705,6 +703,148 @@ export const CreateCourseResponse: Sync = ({ request, course }) => ({
     [CourseScheduling.createCourse, {}, { c: course }],
   ),
   then: actions([Requesting.respond, { request, c: course }]),
+});
+
+/**
+ * GetScheduleRequest: Handles getting a single schedule by ID
+ * Requires authentication and verifies ownership - users can only get their own schedules
+ */
+export const GetScheduleRequest: Sync = ({ request, scheduleId, session }) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/getSchedule",
+      scheduleId,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    console.log("[GetScheduleRequest] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+
+    // Additional ownership validation
+    const validatedFrames = new Frames();
+    for (const frame of result) {
+      const reqId = (frame as Record<symbol, unknown>)[request] as ID;
+      const schedId = (frame as Record<symbol, unknown>)[scheduleId] as ID;
+      const uid = (frame as Record<symbol, unknown>)[userId] as ID;
+
+      // Get the schedule to verify ownership
+      const scheduleResult = await (CourseScheduling as any).getSchedule({
+        scheduleId: schedId,
+      });
+
+      if (!scheduleResult || !scheduleResult[0]) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Schedule not found",
+        });
+        continue;
+      }
+
+      const schedule = scheduleResult[0];
+      if (schedule.owner !== uid) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Unauthorized: you can only access your own schedules",
+        });
+        continue;
+      }
+
+      validatedFrames.push(frame);
+    }
+
+    console.log("[GetScheduleRequest] where clause end", {
+      resultCount: validatedFrames.length,
+    });
+    return validatedFrames;
+  },
+  then: actions([
+    CourseScheduling.getSchedule,
+    { scheduleId },
+  ]),
+});
+
+/**
+ * GetScheduleResponse: Responds with the requested schedule
+ * Note: getSchedule returns Schedule[] | null, so we handle the array response
+ */
+export const GetScheduleResponse: Sync = ({ request, schedules }) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseScheduling/getSchedule" }, {
+      request,
+    }],
+    [CourseScheduling.getSchedule, {}, { schedules }],
+  ),
+  then: actions([Requesting.respond, { request, schedules }]),
+});
+
+/**
+ * GetSchedulesByOwnerRequest: Handles getting all schedules for a specific user
+ * Requires authentication and verifies that userId matches the authenticated user
+ */
+export const GetSchedulesByOwnerRequest: Sync = ({
+  request,
+  userId: requestedUserId,
+  session,
+}) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/getSchedulesByOwner",
+      userId: requestedUserId,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    console.log("[GetSchedulesByOwnerRequest] where clause start", {
+      frameCount: frames.length,
+    });
+    const result = await validateSession(frames, request, session, userId);
+
+    // Validate that requested userId matches authenticated user
+    const validatedFrames = new Frames();
+    for (const frame of result) {
+      const reqId = (frame as Record<symbol, unknown>)[request] as ID;
+      const reqUserId =
+        (frame as Record<symbol, unknown>)[requestedUserId] as ID;
+      const authenticatedUserId =
+        (frame as Record<symbol, unknown>)[userId] as ID;
+
+      if (reqUserId !== authenticatedUserId) {
+        await Requesting.respond({
+          request: reqId,
+          error: "Unauthorized: you can only access your own schedules",
+        });
+        continue;
+      }
+
+      validatedFrames.push(frame);
+    }
+
+    console.log("[GetSchedulesByOwnerRequest] where clause end", {
+      resultCount: validatedFrames.length,
+    });
+    return validatedFrames;
+  },
+  then: actions([
+    CourseScheduling.getSchedulesByOwner,
+    { userId: requestedUserId },
+  ]),
+});
+
+/**
+ * GetSchedulesByOwnerResponse: Responds with the user's schedules
+ * Returns the schedules array directly (similar to getAllSchedules)
+ */
+export const GetSchedulesByOwnerResponse: Sync = ({ request, schedules }) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseScheduling/getSchedulesByOwner" }, {
+      request,
+    }],
+    [CourseScheduling.getSchedulesByOwner, {}, { schedules }],
+  ),
+  then: actions([Requesting.respond, { request, schedules }]),
 });
 
 /**

@@ -435,6 +435,31 @@ export async function startRequestingServer(
         return c.json(response.schedules);
       }
 
+      // Special handling for getSchedulesByOwner: return array directly per API spec
+      if (
+        actionPath === "/CourseScheduling/getSchedulesByOwner" &&
+        response &&
+        typeof response === "object" &&
+        "schedules" in response &&
+        Array.isArray(response.schedules)
+      ) {
+        return c.json(response.schedules);
+      }
+
+      // Special handling for getSchedule: return array directly (getSchedule returns Schedule[] | null)
+      if (
+        actionPath === "/CourseScheduling/getSchedule" &&
+        response &&
+        typeof response === "object" &&
+        "schedules" in response &&
+        Array.isArray(response.schedules)
+      ) {
+        // Return the first schedule if array has one element, or null if empty
+        return c.json(
+          response.schedules.length > 0 ? response.schedules[0] : null,
+        );
+      }
+
       // Special handling for suggestAlternatives: return array directly per API spec
       if (
         actionPath === "/CourseFiltering/suggestAlternatives" &&
