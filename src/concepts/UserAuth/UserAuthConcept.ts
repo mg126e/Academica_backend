@@ -47,22 +47,30 @@ export default class UserAuthConcept {
       password: string;
     },
   ): Promise<{ user: User } | { error: string }> {
-    const existingUser = await this.users.findOne({ username });
-    if (existingUser) {
-      return { error: `Username '${username}' is already taken.` };
+    try {
+      const existingUser = await this.users.findOne({ username });
+      if (existingUser) {
+        return { error: `Username '${username}' is already taken.` };
+      }
+
+      const userId = freshID() as User;
+      // In a real application, 'password' would be hashed here.
+      // e.g., const hashedPassword = await hashPassword(password);
+
+      await this.users.insertOne({
+        _id: userId,
+        username,
+        password, // Storing plaintext for conceptual example, but should be hashed.
+      });
+
+      return { user: userId };
+    } catch (error) {
+      console.error("[UserAuth.register] Database error:", error);
+      // Return a generic error to avoid revealing database issues
+      return {
+        error: "Registration service unavailable. Please try again later.",
+      };
     }
-
-    const userId = freshID() as User;
-    // In a real application, 'password' would be hashed here.
-    // e.g., const hashedPassword = await hashPassword(password);
-
-    await this.users.insertOne({
-      _id: userId,
-      username,
-      password, // Storing plaintext for conceptual example, but should be hashed.
-    });
-
-    return { user: userId };
   }
 
   /**
@@ -76,18 +84,26 @@ export default class UserAuthConcept {
   async authenticate(
     { username, password }: { username: string; password: string },
   ): Promise<{ user: User } | { error: string }> {
-    const user = await this.users.findOne({ username });
+    try {
+      const user = await this.users.findOne({ username });
 
-    if (!user) {
-      return { error: "Invalid username or password." };
-    }
+      if (!user) {
+        return { error: "Invalid username or password." };
+      }
 
-    // In a real application, 'password' would be compared with a hashed password.
-    // e.g., const passwordMatches = await comparePasswords(password, user.passwordHash);
-    if (user.password === password) { // Conceptual comparison, should be hash comparison.
-      return { user: user._id };
-    } else {
-      return { error: "Invalid username or password." };
+      // In a real application, 'password' would be compared with a hashed password.
+      // e.g., const passwordMatches = await comparePasswords(password, user.passwordHash);
+      if (user.password === password) { // Conceptual comparison, should be hash comparison.
+        return { user: user._id };
+      } else {
+        return { error: "Invalid username or password." };
+      }
+    } catch (error) {
+      console.error("[UserAuth.authenticate] Database error:", error);
+      // Return a generic error to avoid revealing database issues
+      return {
+        error: "Authentication service unavailable. Please try again later.",
+      };
     }
   }
 

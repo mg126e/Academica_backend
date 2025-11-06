@@ -22,6 +22,19 @@ import syncs from "@syncs";
  */
 Engine.logging = Logging.TRACE;
 
+// Verify database connection before proceeding
+console.log("Verifying database connection...");
+try {
+  await db.admin().ping();
+  console.log("✓ Database connection verified");
+} catch (error) {
+  console.error("✗ Database connection failed:", error);
+  console.error(
+    "Please check your MONGODB_URL and DB_NAME environment variables",
+  );
+  Deno.exit(1);
+}
+
 // Ensure database indexes are created for optimal query performance
 await ensureIndexes(db);
 
