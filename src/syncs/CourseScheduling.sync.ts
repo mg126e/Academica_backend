@@ -888,6 +888,7 @@ export const AddSectionByCourseCodeRequest: Sync = ({
 
 /**
  * AddSectionByCourseCodeResponse: Responds after successful section addition
+ * Handles optional fields sectionId and message
  */
 export const AddSectionByCourseCodeResponse: Sync = ({
   request,
@@ -901,11 +902,41 @@ export const AddSectionByCourseCodeResponse: Sync = ({
     }],
     [(CourseScheduling as any).addSectionByCourseCode, {}, {
       success,
-      sectionId,
-      message,
     }],
   ),
-  then: actions([Requesting.respond, { request, success, sectionId, message }]),
+  where: (frames) => {
+    // Extract optional fields from action output
+    const result = new Frames();
+    for (const frame of frames) {
+      const actionOutput = (frame as Record<symbol, unknown>)[
+        (CourseScheduling as any).addSectionByCourseCode
+      ] as
+        | { success: boolean; sectionId?: string; message?: string }
+        | undefined;
+
+      if (actionOutput) {
+        const newFrame: Frame = {
+          ...frame,
+          [success]: actionOutput.success,
+        };
+        if (actionOutput.sectionId) {
+          (newFrame as Record<symbol, unknown>)[sectionId] =
+            actionOutput.sectionId;
+        }
+        if (actionOutput.message) {
+          (newFrame as Record<symbol, unknown>)[message] = actionOutput.message;
+        }
+        result.push(newFrame);
+      }
+    }
+    return result;
+  },
+  then: actions([Requesting.respond, {
+    request,
+    success,
+    sectionId,
+    message,
+  }]),
 });
 
 /**
