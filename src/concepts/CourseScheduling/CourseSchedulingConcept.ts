@@ -320,13 +320,80 @@ export class CourseSchedulingConcept {
   ): Promise<{ section: Section | null }> {
     const { courseCode, sectionNumber } = body;
 
-    const section = await this.db.collection<Section>(this.sectionsCollection)
-      .findOne({
-        courseId: courseCode,
-        sectionNumber: sectionNumber,
-      });
+    console.log("[findSectionByCourseCode] Searching", {
+      courseCode,
+      sectionNumber,
+    });
 
-    return { section: section || null };
+    // Normalize section number (remove leading zeros for comparison)
+    const normalizedSectionNumber = sectionNumber.replace(/^0+/, "") || "0";
+    // Also normalize course code (remove spaces, case-insensitive)
+    const normalizedCourseCode = courseCode.replace(/\s+/g, "").toUpperCase();
+
+    // Strategy: Try multiple combinations of course code and section number formats
+    const searchPatterns = [
+      // Exact match
+      { courseId: courseCode, sectionNumber: sectionNumber },
+      // Normalized section number
+      { courseId: courseCode, sectionNumber: normalizedSectionNumber },
+      // Normalized course code with exact section number
+      { courseId: normalizedCourseCode, sectionNumber: sectionNumber },
+      // Normalized course code with normalized section number
+      {
+        courseId: normalizedCourseCode,
+        sectionNumber: normalizedSectionNumber,
+      },
+      // If input had leading zero, try with leading zero
+      ...(sectionNumber !== normalizedSectionNumber
+        ? [{
+          courseId: courseCode,
+          sectionNumber: normalizedSectionNumber.padStart(
+            sectionNumber.length,
+            "0",
+          ),
+        }]
+        : []),
+    ];
+
+    // Try each pattern
+    for (const pattern of searchPatterns) {
+      const section = await this.db.collection<Section>(this.sectionsCollection)
+        .findOne(pattern);
+      if (section) {
+        console.log("[findSectionByCourseCode] Found with pattern", pattern);
+        return { section };
+      }
+    }
+
+    // If still not found, try case-insensitive and space-flexible search
+    const flexibleSection = await this.db.collection<Section>(
+      this.sectionsCollection,
+    ).findOne({
+      $or: [
+        {
+          courseId: {
+            $regex: `^${courseCode.replace(/\s+/g, "\\s*")}$`,
+            $options: "i",
+          },
+          sectionNumber: sectionNumber,
+        },
+        {
+          courseId: {
+            $regex: `^${courseCode.replace(/\s+/g, "\\s*")}$`,
+            $options: "i",
+          },
+          sectionNumber: normalizedSectionNumber,
+        },
+      ],
+    });
+
+    if (flexibleSection) {
+      console.log("[findSectionByCourseCode] Found with flexible search");
+      return { section: flexibleSection };
+    }
+
+    console.log("[findSectionByCourseCode] Not found");
+    return { section: null };
   }
 
   /**
@@ -343,27 +410,92 @@ export class CourseSchedulingConcept {
   ): Promise<{ success: boolean; sectionId?: string; message?: string }> {
     const { userId, scheduleId, courseCode, sectionNumber } = body;
 
+    console.log("[addSectionByCourseCode] Start", {
+      userId,
+      scheduleId,
+      courseCode,
+      sectionNumber,
+    });
+
+    // First verify the schedule exists and belongs to the user
+    const schedule = await this.db.collection<Schedule>(
+      this.schedulesCollection,
+    ).findOne({
+      id: scheduleId,
+      owner: userId,
+    });
+
+    console.log("[addSectionByCourseCode] Schedule lookup", {
+      found: !!schedule,
+      scheduleId,
+      userId,
+    });
+
+    if (!schedule) {
+      console.log(
+        "[addSectionByCourseCode] Schedule not found or unauthorized",
+      );
+      return {
+        success: false,
+        message: "Schedule not found or you don't have permission to modify it",
+      };
+    }
+
     // Find the section
     const { section } = await this.findSectionByCourseCode({
       courseCode,
       sectionNumber,
     });
 
+    console.log("[addSectionByCourseCode] Section lookup", {
+      found: !!section,
+      courseCode,
+      sectionNumber,
+      sectionId: section?.id,
+    });
+
     if (!section) {
+      // Try to find what sections exist for this course code to help debug
+      const sectionsForCourse = await this.db.collection<Section>(
+        this.sectionsCollection,
+      ).find({
+        courseId: { $regex: courseCode.replace(/\s+/g, ".*"), $options: "i" },
+      }).limit(5).toArray();
+
+      console.log("[addSectionByCourseCode] Available sections for course", {
+        courseCode,
+        foundSections: sectionsForCourse.map((s) => ({
+          courseId: s.courseId,
+          sectionNumber: s.sectionNumber,
+        })),
+      });
+
       return {
         success: false,
-        message: `Section not found: ${courseCode} ${sectionNumber}`,
+        message:
+          `Section not found: ${courseCode} ${sectionNumber}. Available sections: ${
+            sectionsForCourse.length > 0
+              ? sectionsForCourse.map((s) => `${s.courseId} ${s.sectionNumber}`)
+                .join(", ")
+              : "none found"
+          }`,
       };
     }
 
     // Add the section to the schedule
     try {
+      console.log("[addSectionByCourseCode] Attempting to add section", {
+        scheduleId,
+        sectionId: section.id,
+      });
       await this.addSection({ userId, scheduleId, sectionId: section.id });
+      console.log("[addSectionByCourseCode] Successfully added section");
       return {
         success: true,
         sectionId: section.id,
       };
     } catch (error) {
+      console.error("[addSectionByCourseCode] Error adding section:", error);
       return {
         success: false,
         message: error instanceof Error
