@@ -27,6 +27,9 @@ const {
   course,
   section,
   schedules,
+  courseCode,
+  success,
+  message,
 } = $vars;
 
 /**
@@ -845,6 +848,64 @@ export const GetSchedulesByOwnerResponse: Sync = ({ request, schedules }) => ({
     [CourseScheduling.getSchedulesByOwner, {}, { schedules }],
   ),
   then: actions([Requesting.respond, { request, schedules }]),
+});
+
+/**
+ * AddSectionByCourseCodeRequest: Handles adding a section to a schedule by course code and section number
+ * Validates session and ensures user owns the schedule
+ * Used for adding AI-suggested courses to schedules
+ */
+export const AddSectionByCourseCodeRequest: Sync = ({
+  request,
+  scheduleId,
+  courseCode,
+  sectionNumber,
+  session,
+}) => ({
+  when: actions(
+    [Requesting.request, {
+      path: "/CourseScheduling/addSectionByCourseCode",
+      scheduleId,
+      courseCode,
+      sectionNumber,
+      session,
+    }, { request }],
+  ),
+  where: async (frames) => {
+    return await validateScheduleOwnership(
+      frames,
+      request,
+      scheduleId,
+      session,
+      userId,
+    );
+  },
+  then: actions([
+    (CourseScheduling as any).addSectionByCourseCode,
+    { userId, scheduleId, courseCode, sectionNumber },
+  ]),
+});
+
+/**
+ * AddSectionByCourseCodeResponse: Responds after successful section addition
+ */
+export const AddSectionByCourseCodeResponse: Sync = ({
+  request,
+  success,
+  sectionId,
+  message,
+}) => ({
+  when: actions(
+    [Requesting.request, { path: "/CourseScheduling/addSectionByCourseCode" }, {
+      request,
+    }],
+    [(CourseScheduling as any).addSectionByCourseCode, {}, {
+      success,
+      sectionId,
+      message,
+    }],
+  ),
+  then: actions([Requesting.respond, { request, success, sectionId, message }]),
 });
 
 /**

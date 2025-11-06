@@ -311,6 +311,68 @@ export class CourseSchedulingConcept {
     return {};
   }
 
+  /**
+   * Find a section by course code and section number
+   * Used for adding AI-suggested courses to schedules
+   */
+  async findSectionByCourseCode(
+    body: { courseCode: string; sectionNumber: string },
+  ): Promise<{ section: Section | null }> {
+    const { courseCode, sectionNumber } = body;
+
+    const section = await this.db.collection<Section>(this.sectionsCollection)
+      .findOne({
+        courseId: courseCode,
+        sectionNumber: sectionNumber,
+      });
+
+    return { section: section || null };
+  }
+
+  /**
+   * Add a section to a schedule by course code and section number
+   * Convenience method for adding AI-suggested courses
+   */
+  async addSectionByCourseCode(
+    body: {
+      userId: string;
+      scheduleId: string;
+      courseCode: string;
+      sectionNumber: string;
+    },
+  ): Promise<{ success: boolean; sectionId?: string; message?: string }> {
+    const { userId, scheduleId, courseCode, sectionNumber } = body;
+
+    // Find the section
+    const { section } = await this.findSectionByCourseCode({
+      courseCode,
+      sectionNumber,
+    });
+
+    if (!section) {
+      return {
+        success: false,
+        message: `Section not found: ${courseCode} ${sectionNumber}`,
+      };
+    }
+
+    // Add the section to the schedule
+    try {
+      await this.addSection({ userId, scheduleId, sectionId: section.id });
+      return {
+        success: true,
+        sectionId: section.id,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error
+          ? error.message
+          : "Failed to add section to schedule",
+      };
+    }
+  }
+
   /** Remove a course section from a student's schedule (atomic) */
   async removeSection( //TESTED
     body: { userId: string; scheduleId: string; sectionId: string },
