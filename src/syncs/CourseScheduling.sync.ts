@@ -27,9 +27,6 @@ const {
   course,
   section,
   schedules,
-  courseCode,
-  success,
-  message,
 } = $vars;
 
 /**
@@ -848,95 +845,6 @@ export const GetSchedulesByOwnerResponse: Sync = ({ request, schedules }) => ({
     [CourseScheduling.getSchedulesByOwner, {}, { schedules }],
   ),
   then: actions([Requesting.respond, { request, schedules }]),
-});
-
-/**
- * AddSectionByCourseCodeRequest: Handles adding a section to a schedule by course code and section number
- * Validates session and ensures user owns the schedule
- * Used for adding AI-suggested courses to schedules
- */
-export const AddSectionByCourseCodeRequest: Sync = ({
-  request,
-  scheduleId,
-  courseCode,
-  sectionNumber,
-  session,
-}) => ({
-  when: actions(
-    [Requesting.request, {
-      path: "/CourseScheduling/addSectionByCourseCode",
-      scheduleId,
-      courseCode,
-      sectionNumber,
-      session,
-    }, { request }],
-  ),
-  where: async (frames) => {
-    return await validateScheduleOwnership(
-      frames,
-      request,
-      scheduleId,
-      session,
-      userId,
-    );
-  },
-  then: actions([
-    (CourseScheduling as any).addSectionByCourseCode,
-    { userId, scheduleId, courseCode, sectionNumber },
-  ]),
-});
-
-/**
- * AddSectionByCourseCodeResponse: Responds after successful section addition
- * Handles optional fields sectionId and message
- */
-export const AddSectionByCourseCodeResponse: Sync = ({
-  request,
-  success,
-  sectionId,
-  message,
-}) => ({
-  when: actions(
-    [Requesting.request, { path: "/CourseScheduling/addSectionByCourseCode" }, {
-      request,
-    }],
-    [(CourseScheduling as any).addSectionByCourseCode, {}, {
-      success,
-    }],
-  ),
-  where: (frames) => {
-    // Extract optional fields from action output
-    const result = new Frames();
-    for (const frame of frames) {
-      const actionOutput = (frame as Record<symbol, unknown>)[
-        (CourseScheduling as any).addSectionByCourseCode
-      ] as
-        | { success: boolean; sectionId?: string; message?: string }
-        | undefined;
-
-      if (actionOutput) {
-        const newFrame: Frame = {
-          ...frame,
-          [success]: actionOutput.success,
-        };
-        if (actionOutput.sectionId) {
-          (newFrame as Record<symbol, unknown>)[sectionId] =
-            actionOutput.sectionId;
-        }
-        if (actionOutput.message) {
-          (newFrame as Record<symbol, unknown>)[message] = actionOutput.message;
-        }
-        result.push(newFrame);
-      }
-    }
-    return result;
-  },
-  then: actions([Requesting.respond, {
-    request,
-    success,
-    sectionId,
-    message,
-  }]),
 });
 
 /**
