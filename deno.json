@@ -7,7 +7,9 @@
         "@engine": "./src/engine/mod.ts",
         "@syncs": "./src/syncs/syncs.ts",
         "std/": "https://deno.land/std@0.177.0/",
-        "@google/generative-ai": "npm:@google/generative-ai"
+        "@google/generative-ai": "npm:@google/generative-ai",
+        "npm:mongodb": "npm:mongodb@^6.20.0",
+        "npm:bson": "npm:bson@^6.10.3"
     },
     "tasks": {
         "start": "deno run --allow-net --allow-write --allow-read --allow-sys --allow-env src/main.ts",

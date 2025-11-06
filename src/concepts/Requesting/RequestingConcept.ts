@@ -285,11 +285,41 @@ export async function startRequestingServer(
         maxAge: 86400, // 24 hours
       };
 
+  console.log(
+    `[CORS] Configuration: origin=${
+      REQUESTING_ALLOWED_DOMAIN === "*" ? "*" : "custom"
+    }, credentials=${REQUESTING_ALLOWED_DOMAIN !== "*"}`,
+  );
+
   // Apply CORS middleware to all routes
+  // This must be applied before any route handlers
   app.use("/*", cors(corsConfig));
 
-  // Explicitly handle OPTIONS requests for preflight
-  app.options("/*", (c) => {
+  // Additional explicit CORS handler for OPTIONS requests (fallback)
+  // This ensures preflight requests always get proper CORS headers
+  app.options("*", async (c) => {
+    const origin = c.req.header("Origin");
+    const corsOrigin = REQUESTING_ALLOWED_DOMAIN === "*"
+      ? "*"
+      : REQUESTING_ALLOWED_DOMAIN.split(",").map((s) => s.trim()).includes(
+          origin || "",
+        )
+      ? origin
+      : REQUESTING_ALLOWED_DOMAIN.split(",")[0] || "*";
+
+    c.header("Access-Control-Allow-Origin", corsOrigin);
+    c.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+    );
+    c.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Session-ID, Accept, Origin, X-Requested-With",
+    );
+    c.header("Access-Control-Max-Age", "86400");
+    if (REQUESTING_ALLOWED_DOMAIN !== "*") {
+      c.header("Access-Control-Allow-Credentials", "true");
+    }
     return c.text("", 204);
   });
 
