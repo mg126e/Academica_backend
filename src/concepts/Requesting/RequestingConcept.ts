@@ -297,7 +297,7 @@ export async function startRequestingServer(
 
   // Additional explicit CORS handler for OPTIONS requests (fallback)
   // This ensures preflight requests always get proper CORS headers
-  app.options("*", async (c) => {
+  app.options("*", (c) => {
     const origin = c.req.header("Origin");
     const corsOrigin = REQUESTING_ALLOWED_DOMAIN === "*"
       ? "*"
@@ -320,7 +320,7 @@ export async function startRequestingServer(
     if (REQUESTING_ALLOWED_DOMAIN !== "*") {
       c.header("Access-Control-Allow-Credentials", "true");
     }
-    return c.text("", 204);
+    return c.body(null, 204);
   });
 
   /**
@@ -446,6 +446,18 @@ export async function startRequestingServer(
       );
 
       // 3. Send the response back to the client.
+      if (!responseArray || !responseArray[0] || !responseArray[0].response) {
+        console.error("[Requesting] No response found in responseArray", {
+          request,
+          responseArrayLength: responseArray?.length,
+          hasFirstElement: !!responseArray?.[0],
+        });
+        return c.json(
+          { error: "No response received from server." },
+          500,
+        );
+      }
+
       const { response } = responseArray[0];
       const elapsed = Date.now() - startTime;
       console.log("[Requesting] POST route handler sending response", {
@@ -453,6 +465,7 @@ export async function startRequestingServer(
         actionPath,
         elapsed: `${elapsed}ms`,
         hasResponse: !!response,
+        responseType: typeof response,
         responseKeys: response && typeof response === "object"
           ? Object.keys(response)
           : null,
@@ -460,54 +473,77 @@ export async function startRequestingServer(
         hasSchedule: !!(response as Record<string, unknown>)?.s,
       });
 
+      // Ensure response is always a valid, serializable object for JSON
+      // Create a plain object copy to avoid serialization issues with Proxies or non-plain objects
+      let jsonResponse: Record<string, unknown>;
+      if (response === null || response === undefined) {
+        jsonResponse = { error: "Empty response from server." };
+      } else if (typeof response === "object" && !Array.isArray(response)) {
+        // Create a plain object copy to ensure proper JSON serialization
+        jsonResponse = { ...response } as Record<string, unknown>;
+      } else {
+        // If response is not an object (e.g., string, number, array), wrap it
+        jsonResponse = { data: response } as Record<string, unknown>;
+      }
+
       // Special handling for getAllSchedules: return array directly per API spec
       if (
         actionPath === "/CourseScheduling/getAllSchedules" &&
-        response &&
-        typeof response === "object" &&
-        "schedules" in response &&
-        Array.isArray(response.schedules)
+        jsonResponse &&
+        typeof jsonResponse === "object" &&
+        "schedules" in jsonResponse &&
+        Array.isArray(jsonResponse.schedules)
       ) {
-        return c.json(response.schedules);
+        return c.json(jsonResponse.schedules);
       }
 
       // Special handling for getSchedulesByOwner: return array directly per API spec
       if (
         actionPath === "/CourseScheduling/getSchedulesByOwner" &&
-        response &&
-        typeof response === "object" &&
-        "schedules" in response &&
-        Array.isArray(response.schedules)
+        jsonResponse &&
+        typeof jsonResponse === "object" &&
+        "schedules" in jsonResponse &&
+        Array.isArray(jsonResponse.schedules)
       ) {
-        return c.json(response.schedules);
+        return c.json(jsonResponse.schedules);
       }
 
       // Special handling for getSchedule: return array directly (getSchedule returns Schedule[] | null)
       if (
         actionPath === "/CourseScheduling/getSchedule" &&
-        response &&
-        typeof response === "object" &&
-        "schedules" in response &&
-        Array.isArray(response.schedules)
+        jsonResponse &&
+        typeof jsonResponse === "object" &&
+        "schedules" in jsonResponse &&
+        Array.isArray(jsonResponse.schedules)
       ) {
         // Return the first schedule if array has one element, or null if empty
         return c.json(
-          response.schedules.length > 0 ? response.schedules[0] : null,
+          jsonResponse.schedules.length > 0 ? jsonResponse.schedules[0] : null,
         );
       }
 
       // Special handling for suggestAlternatives: return array directly per API spec
       if (
         actionPath === "/CourseFiltering/suggestAlternatives" &&
-        response &&
-        typeof response === "object" &&
-        "suggestions" in response &&
-        Array.isArray(response.suggestions)
+        jsonResponse &&
+        typeof jsonResponse === "object" &&
+        "suggestions" in jsonResponse &&
+        Array.isArray(jsonResponse.suggestions)
       ) {
-        return c.json(response.suggestions);
+        return c.json(jsonResponse.suggestions);
       }
 
-      return c.json(response);
+      // Always return valid JSON - ensure it's an object
+      // Log the actual response being sent for debugging
+      console.log("[Requesting] Final response being sent:", {
+        actionPath,
+        responseType: typeof jsonResponse,
+        responseKeys: Object.keys(jsonResponse),
+        responseString: JSON.stringify(jsonResponse).substring(0, 200), // First 200 chars
+      });
+
+      // Explicitly set content-type and return JSON
+      return c.json(jsonResponse, 200);
     } catch (e) {
       const elapsed = Date.now() - startTime;
       if (e instanceof Error) {
