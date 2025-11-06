@@ -48,18 +48,77 @@ deno task start
 ## Verification
 
 After deployment, check Render logs for:
-1. "✓ Database connection verified" - confirms DB is accessible
-2. Any "[UserAuth.authenticate] Database error" messages - indicates DB issues
-3. Server should start without errors
+1. "✓ Database connection verified" - confirms DB is accessible ✅
+2. "✓ Database indexes created successfully" - confirms DB setup is complete ✅
+3. Any "[UserAuth.authenticate] Database error" messages - indicates DB issues
+4. Server should start without errors
 
-Test the endpoint:
+### Note on bson Warning
+If you see a deprecation warning about `bson@6.9.0`, this is harmless. The actual runtime uses `mongodb@6.20.0` which depends on `bson@6.10.4` (the correct version). The warning comes from an old cached dependency entry in the lock file but doesn't affect functionality.
+
+## Testing the Endpoint
+
+### Find Your Render App URL
+1. Go to your Render Dashboard: https://dashboard.render.com
+2. Click on your web service
+3. Look for the "Service Details" section
+4. Your URL will be something like: `https://academica-backend-xxxx.onrender.com`
+
+### Test in Terminal/PowerShell
+
+**On Windows (PowerShell):**
+```powershell
+curl.exe -X POST  -H "Content-Type: application/json" -d '{\"username\":\"test\",\"password\":\"test\"}'
+```
+
+Or use Invoke-WebRequest (more PowerShell-friendly):
+```powershell
+Invoke-WebRequest -Uri "https://YOUR-APP-URL.onrender.com/api/UserAuth/authenticate" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"username":"test","password":"test"}'
+```
+
+**On Mac/Linux (bash):**
 ```bash
-curl -X POST https://your-app.onrender.com/api/UserAuth/authenticate \
+curl -X POST https://YOUR-APP-URL.onrender.com/api/UserAuth/authenticate \
   -H "Content-Type: application/json" \
   -d '{"username":"test","password":"test"}'
 ```
 
-You should get either:
-- `{"session":"..."}` on success
-- `{"error":"..."}` on failure (never empty response)
+**Note:** Replace `YOUR-APP-URL.onrender.com` with your actual Render service URL.
+
+### Expected Responses
+
+**Success (user exists and password matches):**
+```json
+{"session":"some-session-id-here"}
+```
+
+**Failure (user doesn't exist or wrong password):**
+```json
+{"error":"Invalid username or password."}
+```
+
+**Database Error (if DB is unreachable):**
+```json
+{"error":"Authentication service unavailable. Please try again later."}
+```
+
+**Important:** You should NEVER get an empty response or "Unexpected end of JSON input" error anymore.
+
+### Alternative Testing Methods
+
+1. **Browser DevTools Console:**
+   ```javascript
+   fetch('https://YOUR-APP-URL.onrender.com/api/UserAuth/authenticate', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ username: 'test', password: 'test' })
+   })
+   .then(r => r.json())
+   .then(console.log)
+   .catch(console.error);
+   ```
+
+2. **Postman/Insomnia:** Create a POST request to the endpoint with JSON body
+
+3. **Check Render Logs:** After making a request, check your Render service logs to see the request processing
 
