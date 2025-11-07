@@ -22,9 +22,16 @@ const REQUESTING_TIMEOUT = parseInt(
   10,
 );
 
-// TODO: make sure you configure this environment variable for proper CORS configuration
-const REQUESTING_ALLOWED_DOMAIN = Deno.env.get("REQUESTING_ALLOWED_DOMAIN") ??
-  "*";
+const DEFAULT_ALLOWED_DOMAIN = "https://academica-xrm1.onrender.com";
+const REQUESTING_ALLOWED_DOMAIN_RAW = Deno.env.get("REQUESTING_ALLOWED_DOMAIN")
+  ?.trim() ??
+  DEFAULT_ALLOWED_DOMAIN;
+
+const REQUESTING_ALLOWED_DOMAIN = REQUESTING_ALLOWED_DOMAIN_RAW
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, "")) // normalize, drop trailing slash
+  .filter((origin) => origin.length > 0)
+  .join(",") || DEFAULT_ALLOWED_DOMAIN;
 
 // Choose whether or not to persist responses
 const REQUESTING_SAVE_RESPONSES = Deno.env.get("REQUESTING_SAVE_RESPONSES") ??
@@ -233,79 +240,74 @@ export async function startRequestingServer(
   // Configure CORS to allow requests from frontend
   // This handles both simple and preflight (OPTIONS) requests
   // Note: When using credentials: true, origin cannot be "*", so we need a function
-  const corsConfig: Parameters<typeof cors>[0] =
-    REQUESTING_ALLOWED_DOMAIN === "*"
-      ? {
-        origin: "*",
-        credentials: false,
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        allowHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Session-ID",
-          "Accept",
-          "Origin",
-          "X-Requested-With",
-        ],
-        exposeHeaders: [
-          "Content-Type",
-          "Content-Length",
-          "ETag",
-        ],
-        maxAge: 86400, // 24 hours
-      }
-      : {
-        origin: (origin) => {
-          // Support comma-separated list of allowed origins
-          const allowed = REQUESTING_ALLOWED_DOMAIN.split(",").map((s) =>
-            s.trim()
-          );
-          // If origin is provided and in allowed list, return it
-          if (origin && allowed.includes(origin)) {
-            return origin;
-          }
-          // Otherwise return the first allowed origin
-          return allowed[0] || "*";
-        },
-        credentials: true,
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        allowHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Session-ID",
-          "Accept",
-          "Origin",
-          "X-Requested-With",
-        ],
-        exposeHeaders: [
-          "Content-Type",
-          "Content-Length",
-          "ETag",
-        ],
-        maxAge: 86400, // 24 hours
-      };
+  const allowedOrigins = REQUESTING_ALLOWED_DOMAIN === "*"
+    ? ["*"]
+    : REQUESTING_ALLOWED_DOMAIN.split(",").map((origin) => origin.trim());
+
+  const corsConfig: Parameters<typeof cors>[0] = allowedOrigins.includes("*")
+    ? {
+      origin: "*",
+      credentials: false,
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Session-ID",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+      ],
+      exposeHeaders: [
+        "Content-Type",
+        "Content-Length",
+        "ETag",
+      ],
+      maxAge: 86400, // 24 hours
+    }
+    : {
+      origin: (origin) => {
+        if (origin && allowedOrigins.includes(origin)) {
+          return origin;
+        }
+        return allowedOrigins[0];
+      },
+      credentials: allowedOrigins.length > 0,
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Session-ID",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+      ],
+      exposeHeaders: [
+        "Content-Type",
+        "Content-Length",
+        "ETag",
+      ],
+      maxAge: 86400, // 24 hours
+    };
 
   console.log(
     `[CORS] Configuration: origin=${
-      REQUESTING_ALLOWED_DOMAIN === "*" ? "*" : "custom"
-    }, credentials=${REQUESTING_ALLOWED_DOMAIN !== "*"}`,
+      allowedOrigins.includes("*") ? "*" : "custom"
+    }, credentials=${!allowedOrigins.includes("*")}`,
   );
 
   // Apply CORS middleware to all routes
   // This must be applied before any route handlers
-  app.use("/*", cors(corsConfig));
+  app.use("/*", cors({ origin: REQUESTING_ALLOWED_DOMAIN, credentials: true }));
 
   // Additional explicit CORS handler for OPTIONS requests (fallback)
   // This ensures preflight requests always get proper CORS headers
   app.options("*", (c) => {
     const origin = c.req.header("Origin");
-    const corsOrigin = REQUESTING_ALLOWED_DOMAIN === "*"
+    const corsOrigin = allowedOrigins.includes("*")
       ? "*"
-      : REQUESTING_ALLOWED_DOMAIN.split(",").map((s) => s.trim()).includes(
-          origin || "",
-        )
+      : allowedOrigins.includes(origin || "")
       ? origin
-      : REQUESTING_ALLOWED_DOMAIN.split(",")[0] || "*";
+      : allowedOrigins[0] || "*";
 
     c.header("Access-Control-Allow-Origin", corsOrigin);
     c.header(
@@ -317,7 +319,7 @@ export async function startRequestingServer(
       "Content-Type, Authorization, X-Session-ID, Accept, Origin, X-Requested-With",
     );
     c.header("Access-Control-Max-Age", "86400");
-    if (REQUESTING_ALLOWED_DOMAIN !== "*") {
+    if (!allowedOrigins.includes("*")) {
       c.header("Access-Control-Allow-Credentials", "true");
     }
     return c.body(null, 204);
