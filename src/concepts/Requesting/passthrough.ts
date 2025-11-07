@@ -95,6 +95,8 @@ export const exclusions: Array<string> = [
   "/api/CourseScheduling/addSection",
   "/api/CourseScheduling/removeSection",
   "/api/CourseScheduling/duplicateSchedule",
+  "/api/CourseScheduling/getSchedulesByOwner",
+  "/api/CourseScheduling/getSchedule",
   // GoogleCalendar
   "/api/GoogleCalendar/getAuthorizationUrl",
   "/api/GoogleCalendar/exchangeCodeForToken",
