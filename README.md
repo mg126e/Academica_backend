@@ -1,9 +1,8 @@
 # Academica Backend
 
 [Design Changes](design/Design_Changes.md)\
-[User Journey](design/UserJourney.md)\
 [Design Study](design/DesignStudy)\
-[Screen Recording](https://youtu.be/1FlhxO7HnOA?si=yCD9O86ecyt-06mn)
+[Screen Recording of User Journey]([https://youtu.be/1FlhxO7HnOA?si=yCD9O86ecyt-06mn](https://youtu.be/VehjqYeD4gg))
 
 
 ### Starting the Server
