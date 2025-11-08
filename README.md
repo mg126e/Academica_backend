@@ -3,6 +3,7 @@
 [Design Document](CompleteDesignDoc.md)\
 [Reflection](reflection.md)\
 [Screen Recording of User Journey](https://youtu.be/VehjqYeD4gg)
+[Trace](Trace.md)
 
 
 ### Starting the Server
