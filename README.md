@@ -3,7 +3,7 @@
 [Design Document](CompleteDesignDoc.md)\
 [Reflection](reflection.md)\
 [Screen Recording of User Journey](https://youtu.be/VehjqYeD4gg)\
-[Trace of Backend Terminal Output](Trace.md)
+[Trace of Backend Terminal Output](Trace.md)\
 [Visual Design Study](design/DesignStudy/1.jpg)
 
 
