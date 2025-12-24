@@ -1,5 +1,7 @@
 # Academica Backend
 
+[Academica Run On Render](https://academica-xrm1.onrender.com)
+
 [Design Document](CompleteDesignDoc.md)\
 [Reflection](reflection.md)\
 [Screen Recording of User Journey](https://youtu.be/VehjqYeD4gg)\
